@@ -136,7 +136,7 @@
 ```
                           ┌──────────────────────────────────────────┐
                           │           管理ダッシュボード               │
-                          │        (Firebase Hosting / React)        │
+                          │       (Firebase Hosting / Svelte)        │
                           │                                          │
                           │  ┌────────────────────────────────────┐  │
                           │  │   プロンプト育成チャット UI           │  │
@@ -219,7 +219,7 @@
 
 | レイヤー           | 技術                                      | 用途                                                                       |
 | ------------------ | ----------------------------------------- | -------------------------------------------------------------------------- |
-| フロントエンド     | React + TypeScript                        | 管理ダッシュボード、プロンプト育成チャットUI                               |
+| フロントエンド     | Svelte + TypeScript                       | 管理ダッシュボード、プロンプト育成チャットUI                               |
 | ホスティング       | Firebase Hosting                          | SPA配信                                                                    |
 | バックエンド       | Cloud Functions for Firebase (TypeScript) | API、バッチ処理、プロンプト学習エンジン、ソース発見エンジン                |
 | データベース       | Cloud Firestore                           | リアルタイムデータ、設定管理、対話履歴                                     |
@@ -1782,7 +1782,7 @@ ai-newsletter-system/
 - [x] Firestoreデータモデル設計
 - [x] Cloud Functions: RSS収集・AI記事分析・メルマガ生成・REST API
 - [x] Firestoreセキュリティルール & インデックス
-- [ ] 管理ダッシュボード（React）
+- [ ] 管理ダッシュボード（Svelte）
 - [ ] メール配信連携（SendGrid）
 - [ ] Firebase Authentication統合
 - [ ] CI/CD（GitHub Actions）
