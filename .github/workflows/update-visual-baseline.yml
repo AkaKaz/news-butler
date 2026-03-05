@@ -23,6 +23,12 @@ jobs:
 
       - name: Build frontend
         run: cd frontend && npm run build
+        env:
+          VITE_FIREBASE_API_KEY: dummy
+          VITE_FIREBASE_AUTH_DOMAIN: dummy.firebaseapp.com
+          VITE_FIREBASE_PROJECT_ID: dummy
+          VITE_FIREBASE_APP_ID: dummy
+          VITE_API_BASE_URL: http://localhost:3000
 
       - name: Generate visual baselines
         run: cd frontend && npm run test:visual:update
