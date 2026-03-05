@@ -1,8 +1,7 @@
 import {test} from "@playwright/test";
-import path from "path";
 import fs from "fs";
 
-const snapshotDir = path.join(__dirname, "snapshots-actual");
+const snapshotDir = "tests/snapshots-actual";
 
 test.beforeAll(() => {
   fs.mkdirSync(snapshotDir, {recursive: true});
@@ -11,7 +10,7 @@ test.beforeAll(() => {
 test("top page screenshot", async ({page}) => {
   await page.goto("/");
   await page.screenshot({
-    path: path.join(snapshotDir, "top-page.png"),
+    path: `${snapshotDir}/top-page.png`,
     fullPage: true,
   });
 });
