@@ -35,10 +35,12 @@ app.use("/topics", topicsRouter);
 
 beforeEach(() => {
   jest.clearAllMocks();
-  mockDoc.mockReturnValue({get: mockGet, update: mockUpdate, delete: mockDelete});
+  mockDoc.mockReturnValue({
+    get: mockGet, update: mockUpdate, delete: mockDelete,
+  });
 });
 
-// ─── GET /topics ──────────────────────────────────────────────────────────────
+// ─── GET /topics ─────────────────────────────────────────────────────────────
 
 describe("GET /topics", () => {
   it("トピック一覧を返す", async () => {
@@ -56,7 +58,7 @@ describe("GET /topics", () => {
   });
 });
 
-// ─── POST /topics ─────────────────────────────────────────────────────────────
+// ─── POST /topics ────────────────────────────────────────────────────────────
 
 describe("POST /topics", () => {
   it("トピックを追加する", async () => {
@@ -83,7 +85,7 @@ describe("POST /topics", () => {
   });
 });
 
-// ─── PUT /topics/:id ──────────────────────────────────────────────────────────
+// ─── PUT /topics/:id ─────────────────────────────────────────────────────────
 
 describe("PUT /topics/:id", () => {
   it("既存トピックを更新する", async () => {
@@ -107,7 +109,7 @@ describe("PUT /topics/:id", () => {
   });
 });
 
-// ─── DELETE /topics/:id ───────────────────────────────────────────────────────
+// ─── DELETE /topics/:id ──────────────────────────────────────────────────────
 
 describe("DELETE /topics/:id", () => {
   it("トピックを削除する（204）", async () => {
