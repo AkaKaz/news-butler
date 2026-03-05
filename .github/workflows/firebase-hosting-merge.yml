@@ -59,6 +59,8 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:
@@ -81,13 +83,30 @@ jobs:
           VITE_FIREBASE_APP_ID: dummy
           VITE_API_BASE_URL: http://localhost:3000
 
-      - name: Generate visual baselines
-        run: cd frontend && npm run test:visual:update
+      - name: Run Playwright (capture screenshots)
+        run: cd frontend && npm run test:visual
 
-      - name: Upload visual baselines
-        uses: actions/upload-artifact@v4
-        with:
-          name: playwright-baselines
-          path: frontend/tests/snapshots/
-          retention-days: 90
+      - name: Setup GCS credentials
+        env:
+          GCS_CLIENT_EMAIL: ${{ secrets.GCS_CLIENT_EMAIL }}
+          GCS_PRIVATE_KEY: ${{ secrets.GCS_PRIVATE_KEY }}
+        run: |
+          python3 -c "
+          import json, os
+          creds = {
+            'type': 'service_account',
+            'project_id': 'akanmi-news-butler',
+            'client_email': os.environ['GCS_CLIENT_EMAIL'],
+            'private_key': os.environ['GCS_PRIVATE_KEY'].replace('\\\\n', '\\n'),
+            'token_uri': 'https://oauth2.googleapis.com/token'
+          }
+          with open('/tmp/gcs-key.json', 'w') as f:
+            json.dump(creds, f)
+          "
+          echo "GOOGLE_APPLICATION_CREDENTIALS=/tmp/gcs-key.json" >> $GITHUB_ENV
+
+      - name: Run reg-suit (publish baseline to GCS)
+        run: cd frontend && npx reg-suit run
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 

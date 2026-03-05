@@ -69,6 +69,8 @@ jobs:
     needs: lint_and_check
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - uses: actions/setup-node@v4
         with:
@@ -82,16 +84,6 @@ jobs:
       - name: Install Playwright browsers
         run: cd frontend && npx playwright install chromium --with-deps
 
-      - name: Download baseline snapshots from main
-        uses: dawidd6/action-download-artifact@v6
-        continue-on-error: true
-        with:
-          name: playwright-baselines
-          workflow: update-visual-baseline.yml
-          branch: main
-          path: frontend/tests/snapshots/
-          if_no_artifact_found: warn
-
       - name: Build frontend
         run: cd frontend && npm run build
         env:
@@ -101,32 +93,32 @@ jobs:
           VITE_FIREBASE_APP_ID: dummy
           VITE_API_BASE_URL: http://localhost:3000
 
-      - name: Run visual regression tests
+      - name: Run Playwright (capture screenshots)
         run: cd frontend && npm run test:visual
 
-      - name: Upload Playwright report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: playwright-report
-          path: frontend/playwright-report/
-          retention-days: 30
+      - name: Setup GCS credentials
+        env:
+          GCS_CLIENT_EMAIL: ${{ secrets.GCS_CLIENT_EMAIL }}
+          GCS_PRIVATE_KEY: ${{ secrets.GCS_PRIVATE_KEY }}
+        run: |
+          python3 -c "
+          import json, os
+          creds = {
+            'type': 'service_account',
+            'project_id': 'akanmi-news-butler',
+            'client_email': os.environ['GCS_CLIENT_EMAIL'],
+            'private_key': os.environ['GCS_PRIVATE_KEY'].replace('\\\\n', '\\n'),
+            'token_uri': 'https://oauth2.googleapis.com/token'
+          }
+          with open('/tmp/gcs-key.json', 'w') as f:
+            json.dump(creds, f)
+          "
+          echo "GOOGLE_APPLICATION_CREDENTIALS=/tmp/gcs-key.json" >> $GITHUB_ENV
 
-      - name: Test report (JUnit)
-        if: always()
-        uses: dorny/test-reporter@v1
-        with:
-          name: Visual Regression Tests
-          path: frontend/reports/junit.xml
-          reporter: jest-junit
-          token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Post VRT results to PR
-        if: always()
-        uses: EnricoMi/publish-unit-test-result-action@v2
-        with:
-          files: frontend/reports/junit.xml
-          comment_title: Visual Regression Test Results
+      - name: Run reg-suit (compare & publish)
+        run: cd frontend && npx reg-suit run
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   build_and_preview:
     if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
