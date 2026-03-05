@@ -31,6 +31,9 @@ jobs:
           npm ci
           npm run build
 
+      - name: Functions unit tests (Jest)
+        run: cd functions && npm test
+
       - uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}

@@ -37,6 +37,9 @@ jobs:
       - name: Functions type check (tsc)
         run: cd functions && npm run build
 
+      - name: Functions unit tests (Jest)
+        run: cd functions && npm test
+
   visual_regression:
     runs-on: ubuntu-latest
     needs: lint_and_check
