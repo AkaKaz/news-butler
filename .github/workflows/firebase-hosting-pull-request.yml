@@ -55,6 +55,7 @@ jobs:
           name: Functions Tests
           path: functions/reports/junit.xml
           reporter: jest-junit
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Post Functions test results to PR
         if: always()
@@ -81,18 +82,14 @@ jobs:
       - name: Install Playwright browsers
         run: cd frontend && npx playwright install chromium --with-deps
 
-      - name: Download baseline snapshots from main
-        uses: dawidd6/action-download-artifact@v6
-        continue-on-error: true
-        with:
-          name: playwright-baselines
-          workflow: update-visual-baseline.yml
-          branch: main
-          path: frontend/tests/snapshots/
-          if_no_artifact_found: warn
-
       - name: Build frontend
         run: cd frontend && npm run build
+        env:
+          VITE_FIREBASE_API_KEY: dummy
+          VITE_FIREBASE_AUTH_DOMAIN: dummy.firebaseapp.com
+          VITE_FIREBASE_PROJECT_ID: dummy
+          VITE_FIREBASE_APP_ID: dummy
+          VITE_API_BASE_URL: http://localhost:3000
 
       - name: Run visual regression tests
         run: cd frontend && npm run test:visual
@@ -112,6 +109,7 @@ jobs:
           name: Visual Regression Tests
           path: frontend/reports/junit.xml
           reporter: jest-junit
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Post VRT results to PR
         if: always()
