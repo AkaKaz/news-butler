@@ -27,3 +27,9 @@ npm install --save-dev @types/xml2js
 
 - 実装前に `npm run lint` と `npm run build` を確認してからコミットする
 - PR 本文に `Closes #issue番号` を記載して Issue と紐づける
+
+## コーディング規則
+
+- 1行は **80文字以内**（ESLint `max-len` ルール）
+- セクションコメントの罫線（`// ─── ... ───`）も80文字以内に収める
+- テストファイルのモック設定行など長くなりやすい行は改行して分割する
