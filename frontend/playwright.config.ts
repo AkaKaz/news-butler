@@ -2,7 +2,6 @@ import {defineConfig, devices} from "@playwright/test";
 
 export default defineConfig({
   testDir: "./tests",
-  snapshotDir: "./tests/snapshots",
   fullyParallel: true,
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,
@@ -10,7 +9,6 @@ export default defineConfig({
     [
       ["html", {open: "never"}],
       ["github"],
-      ["junit", {outputFile: "reports/junit.xml"}],
     ] :
     "html",
   use: {
