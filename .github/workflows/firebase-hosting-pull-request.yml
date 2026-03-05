@@ -98,6 +98,14 @@ jobs:
           path: frontend/playwright-report/
           retention-days: 30
 
+      - name: Test report (JUnit)
+        if: always()
+        uses: dorny/test-reporter@v1
+        with:
+          name: Visual Regression Tests
+          path: frontend/reports/junit.xml
+          reporter: jest-junit
+
   build_and_preview:
     if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
     needs: lint_and_check
