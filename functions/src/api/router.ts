@@ -1,5 +1,6 @@
 import {Router} from "express";
 import {authenticate} from "./middleware";
+import {sourcesRouter} from "./sources";
 
 // eslint-disable-next-line new-cap
 export const router = Router();
@@ -12,8 +13,7 @@ router.get("/health", (_req, res) => {
   res.json({status: "ok"});
 });
 
-// 各リソースのルーターはここにマウント予定
-// router.use("/sources", sourcesRouter);
+router.use("/sources", sourcesRouter);
 // router.use("/articles", articlesRouter);
 // router.use("/topics", topicsRouter);
 // router.use("/digests", digestsRouter);
