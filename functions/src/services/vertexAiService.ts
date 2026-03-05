@@ -96,7 +96,7 @@ ${articleList}
  * @param {string} text AI レスポンステキスト
  * @return {ArticleAnalysis} パース結果
  */
-function parseAnalysisJson(text: string): ArticleAnalysis {
+export function parseAnalysisJson(text: string): ArticleAnalysis {
   const jsonMatch = text.match(/\{[\s\S]*\}/);
   if (!jsonMatch) {
     throw new Error(`AI response is not valid JSON: ${text.slice(0, 100)}`);
