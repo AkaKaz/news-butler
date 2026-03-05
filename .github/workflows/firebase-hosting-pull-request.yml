@@ -55,6 +55,7 @@ jobs:
           name: Functions Tests
           path: functions/reports/junit.xml
           reporter: jest-junit
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Post Functions test results to PR
         if: always()
@@ -118,6 +119,7 @@ jobs:
           name: Visual Regression Tests
           path: frontend/reports/junit.xml
           reporter: jest-junit
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Post VRT results to PR
         if: always()
