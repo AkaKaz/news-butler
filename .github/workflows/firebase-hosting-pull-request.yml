@@ -6,6 +6,7 @@ permissions:
   checks: write
   contents: read
   pull-requests: write
+  actions: read
 
 jobs:
   lint_and_check:
@@ -53,6 +54,16 @@ jobs:
 
       - name: Install Playwright browsers
         run: cd frontend && npx playwright install chromium --with-deps
+
+      - name: Download baseline snapshots from main
+        uses: dawidd6/action-download-artifact@v6
+        continue-on-error: true
+        with:
+          name: playwright-baselines
+          workflow: update-visual-baseline.yml
+          branch: main
+          path: frontend/tests/snapshots/
+          if_no_artifact_found: warn
 
       - name: Build frontend
         run: cd frontend && npm run build
