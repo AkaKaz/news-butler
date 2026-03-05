@@ -11,6 +11,12 @@ const config: Config = {
   transform: {
     "^.+\\.tsx?$": ["ts-jest", {tsconfig: "tsconfig.test.json"}],
   },
+  reporters: [
+    "default",
+    ["jest-junit", {outputDirectory: "reports", outputName: "junit.xml"}],
+  ],
+  coverageDirectory: "coverage",
+  coverageReporters: ["text", "html", "lcov"],
 };
 
 export default config;

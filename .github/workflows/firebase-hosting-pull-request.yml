@@ -37,8 +37,24 @@ jobs:
       - name: Functions type check (tsc)
         run: cd functions && npm run build
 
-      - name: Functions unit tests (Jest)
-        run: cd functions && npm test
+      - name: Functions unit tests with coverage (Jest)
+        run: cd functions && npm run test:coverage
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: functions/coverage/
+          retention-days: 30
+
+      - name: Test report (JUnit)
+        if: always()
+        uses: dorny/test-reporter@v1
+        with:
+          name: Functions Tests
+          path: functions/reports/junit.xml
+          reporter: jest-junit
 
   visual_regression:
     runs-on: ubuntu-latest

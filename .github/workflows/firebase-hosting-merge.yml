@@ -31,8 +31,16 @@ jobs:
           npm ci
           npm run build
 
-      - name: Functions unit tests (Jest)
-        run: cd functions && npm test
+      - name: Functions unit tests with coverage (Jest)
+        run: cd functions && npm run test:coverage
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: functions/coverage/
+          retention-days: 30
 
       - uses: FirebaseExtended/action-hosting-deploy@v0
         with:
