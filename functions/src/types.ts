@@ -1,4 +1,4 @@
-import { Timestamp } from "firebase-admin/firestore";
+import {Timestamp} from "firebase-admin/firestore";
 
 // ─── Source ──────────────────────────────────────────────────────────────────
 
@@ -64,12 +64,12 @@ export interface Digest {
   generatedAt: Timestamp;
 }
 
-// ─── API request / response ───────────────────────────────────────────────────
+// ─── API request / response ──────────────────────────────────────────────────
 
 export interface GenerateDigestRequest {
   topicId: string;
   from?: string; // ISO 8601
-  to?: string;   // ISO 8601
+  to?: string; // ISO 8601
 }
 
 export interface ArticleListQuery {
