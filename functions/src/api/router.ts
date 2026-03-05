@@ -2,6 +2,7 @@ import {Router} from "express";
 import {authenticate} from "./middleware";
 import {sourcesRouter} from "./sources";
 import {articlesRouter} from "./articles";
+import {topicsRouter} from "./topics";
 
 // eslint-disable-next-line new-cap
 export const router = Router();
@@ -16,5 +17,5 @@ router.get("/health", (_req, res) => {
 
 router.use("/sources", sourcesRouter);
 router.use("/articles", articlesRouter);
-// router.use("/topics", topicsRouter);
+router.use("/topics", topicsRouter);
 // router.use("/digests", digestsRouter);
