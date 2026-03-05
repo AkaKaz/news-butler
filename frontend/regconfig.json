@@ -1,0 +1,19 @@
+{
+  "core": {
+    "workingDir": ".reg",
+    "actualDir": "test-results/screenshots",
+    "threshold": 0.01,
+    "ximgdiff": {
+      "invocationType": "client"
+    }
+  },
+  "plugins": {
+    "reg-keygen-git-hash-plugin": true,
+    "reg-publish-gcs-plugin": {
+      "bucketName": "news-butler-vrt"
+    },
+    "reg-notify-github-plugin": {
+      "prCommentBehavior": "new"
+    }
+  }
+}
