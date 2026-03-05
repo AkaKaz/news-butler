@@ -26,5 +26,5 @@ vite.config.ts.timestamp-*
 # Playwright
 playwright-report/
 test-results/
-# tests/snapshots/ — tracked in git to serve as VRT baseline
+tests/snapshots/
 reports/
