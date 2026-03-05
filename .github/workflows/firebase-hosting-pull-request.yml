@@ -37,6 +37,32 @@ jobs:
       - name: Functions type check (tsc)
         run: cd functions && npm run build
 
+      - name: Functions unit tests with coverage (Jest)
+        run: cd functions && npm run test:coverage
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: functions/coverage/
+          retention-days: 30
+
+      - name: Test report (JUnit)
+        if: always()
+        uses: dorny/test-reporter@v1
+        with:
+          name: Functions Tests
+          path: functions/reports/junit.xml
+          reporter: jest-junit
+
+      - name: Post Functions test results to PR
+        if: always()
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        with:
+          files: functions/reports/junit.xml
+          comment_title: Functions Test Results
+
   visual_regression:
     runs-on: ubuntu-latest
     needs: lint_and_check
@@ -78,6 +104,21 @@ jobs:
           name: playwright-report
           path: frontend/playwright-report/
           retention-days: 30
+
+      - name: Test report (JUnit)
+        if: always()
+        uses: dorny/test-reporter@v1
+        with:
+          name: Visual Regression Tests
+          path: frontend/reports/junit.xml
+          reporter: jest-junit
+
+      - name: Post VRT results to PR
+        if: always()
+        uses: EnricoMi/publish-unit-test-result-action@v2
+        with:
+          files: frontend/reports/junit.xml
+          comment_title: Visual Regression Test Results
 
   build_and_preview:
     if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
