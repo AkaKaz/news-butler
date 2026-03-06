@@ -78,55 +78,42 @@ jobs:
           gsutil cp functions/reports/coverage.html \
             "gs://${BUCKET}/coverage/${SHA}.html"
 
-      - name: Post CI report to PR (coverage)
+      - name: Create coverage check
         if: always()
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CHECK_REPO: ${{ github.repository }}
+          CHECK_SHA: ${{ github.sha }}
         run: |
-          BUCKET="akanmi-news-butler-ci"
-          SHA="${{ github.sha }}"
-          URL="https://storage.googleapis.com/${BUCKET}/coverage/${SHA}.html"
           OUTPUT=$(cat /tmp/jest-output.txt 2>/dev/null || echo "")
           LINES=$(echo "$OUTPUT" | awk '/^All files/{print $5}' \
             | grep -oP '\d+\.\d+' | head -1)
+          URL="https://storage.googleapis.com/akanmi-news-butler-ci/coverage/${CHECK_SHA}.html"
 
           if [ -n "$LINES" ]; then
-            COV="📊 Coverage ✅ ${LINES}% lines — [詳細](${URL})"
+            export TITLE="${LINES}% lines" CONCLUSION="success"
           else
-            COV="📊 Coverage ❌ — [詳細](${URL})"
+            export TITLE="failed" CONCLUSION="failure"
           fi
-
-          printf "<!-- ci-report -->\n%s\n" "$COV" > /tmp/ci-report.md
-
-          COMMENT_ID=$(gh api \
-            "repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments" \
-            --jq '[.[] | select(.body | startswith("<!-- ci-report -->"))] | last | .id // empty' \
-            2>/dev/null)
-
-          if [ -n "$COMMENT_ID" ]; then
-            python3 -c "import json; open('/tmp/patch.json','w').write(json.dumps({'body': open('/tmp/ci-report.md').read()}))"
-            gh api "repos/${{ github.repository }}/issues/comments/${COMMENT_ID}" \
-              --method PATCH --input /tmp/patch.json
-          else
-            gh pr comment ${{ github.event.pull_request.number }} \
-              --body-file /tmp/ci-report.md
-          fi
+          jq -n \
+            --arg sha "$CHECK_SHA" \
+            --arg conclusion "$CONCLUSION" \
+            --arg title "$TITLE" \
+            --arg summary "[詳細レポートを開く](${URL})" \
+            '{name:"Coverage",head_sha:$sha,status:"completed",
+              conclusion:$conclusion,output:{title:$title,summary:$summary}}' \
+            > /tmp/check.json
+          gh api "repos/${CHECK_REPO}/check-runs" \
+            --method POST --input /tmp/check.json
 
       - name: Test report (JUnit)
         if: always()
         uses: dorny/test-reporter@v1
         with:
-          name: Functions Tests
+          name: Unit Tests
           path: functions/reports/junit.xml
           reporter: jest-junit
           token: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Post Functions test results to PR
-        if: always()
-        uses: EnricoMi/publish-unit-test-result-action@v2
-        with:
-          files: functions/reports/junit.xml
-          comment_title: Functions Test Results
 
   visual_regression:
     runs-on: ubuntu-latest
@@ -188,10 +175,12 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Update CI report with VRT results
+      - name: Create VRT check
         if: always()
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CHECK_REPO: ${{ github.repository }}
+          CHECK_SHA: ${{ github.sha }}
         run: |
           OUTPUT=$(cat /tmp/reg-suit-output.txt 2>/dev/null || echo "")
           CHANGED=$(echo "$OUTPUT" | grep "Changed items:" | grep -oP '\d+' || echo "0")
@@ -200,37 +189,32 @@ jobs:
           PASSED=$(echo "$OUTPUT" | grep "Passed items:" | grep -oP '\d+' || echo "0")
           REPORT_URL=$(echo "$OUTPUT" | grep "Report URL:" | grep -oP 'https://\S+' || echo "")
           CHANGED=${CHANGED:-0}; NEW=${NEW:-0}; DELETED=${DELETED:-0}; PASSED=${PASSED:-0}
-          TOTAL=$((PASSED + CHANGED + NEW + DELETED))
 
-          if [ "$CHANGED" = "0" ] && [ "$NEW" = "0" ] && [ "$DELETED" = "0" ]; then
-            VRT="🖼️ VRT ✅ ${PASSED}/${TOTAL}"
+          TITLE="pass ${PASSED}"
+          [ "$NEW" != "0" ]     && TITLE="${TITLE}, new ${NEW}"
+          [ "$DELETED" != "0" ] && TITLE="${TITLE}, delete ${DELETED}"
+          [ "$CHANGED" != "0" ] && TITLE="${TITLE}, changed ${CHANGED}"
+
+          if [ "$CHANGED" != "0" ]; then
+            CONCLUSION="failure"
+          elif [ "$NEW" != "0" ] || [ "$DELETED" != "0" ]; then
+            CONCLUSION="neutral"
           else
-            DETAIL=""
-            [ "$CHANGED" != "0" ] && DETAIL="${DETAIL}${CHANGED} changed, "
-            [ "$NEW" != "0" ] && DETAIL="${DETAIL}${NEW} new, "
-            [ "$DELETED" != "0" ] && DETAIL="${DETAIL}${DELETED} deleted, "
-            DETAIL="${DETAIL%, }"
-            VRT="🖼️ VRT ⚠️ ${PASSED}/${TOTAL} (${DETAIL})"
+            CONCLUSION="success"
           fi
-          [ -n "$REPORT_URL" ] && VRT="${VRT} — [レポート](${REPORT_URL})"
 
-          COMMENT_ID=$(gh api \
-            "repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments" \
-            --jq '[.[] | select(.body | startswith("<!-- ci-report -->"))] | last | .id // empty' \
-            2>/dev/null)
-
-          if [ -n "$COMMENT_ID" ]; then
-            EXISTING=$(gh api "repos/${{ github.repository }}/issues/comments/${COMMENT_ID}" \
-              --jq '.body')
-            printf "%s\n%s\n" "$EXISTING" "$VRT" > /tmp/ci-report.md
-            python3 -c "import json; open('/tmp/patch.json','w').write(json.dumps({'body': open('/tmp/ci-report.md').read()}))"
-            gh api "repos/${{ github.repository }}/issues/comments/${COMMENT_ID}" \
-              --method PATCH --input /tmp/patch.json
-          else
-            printf "<!-- ci-report -->\n%s\n" "$VRT" > /tmp/ci-report.md
-            gh pr comment ${{ github.event.pull_request.number }} \
-              --body-file /tmp/ci-report.md
-          fi
+          SUMMARY=""
+          [ -n "$REPORT_URL" ] && SUMMARY="[レポートを開く](${REPORT_URL})"
+          jq -n \
+            --arg sha "$CHECK_SHA" \
+            --arg conclusion "$CONCLUSION" \
+            --arg title "$TITLE" \
+            --arg summary "$SUMMARY" \
+            '{name:"VRT",head_sha:$sha,status:"completed",
+              conclusion:$conclusion,output:{title:$title,summary:$summary}}' \
+            > /tmp/check.json
+          gh api "repos/${CHECK_REPO}/check-runs" \
+            --method POST --input /tmp/check.json
 
       - name: Upload VRT report artifact
         if: always()
