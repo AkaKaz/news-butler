@@ -231,6 +231,16 @@ jobs:
           gh pr comment ${{ github.event.pull_request.number }} \
             --body-file /tmp/vrt-comment.md
 
+          cat /tmp/vrt-comment.md >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload VRT report artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vrt-report
+          path: frontend/.reg/
+          retention-days: 30
+
   build_and_preview:
     if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
     needs: lint_and_check
