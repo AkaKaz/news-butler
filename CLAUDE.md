@@ -27,6 +27,9 @@ npm install --save-dev @types/xml2js
 
 - 実装前に `npm run lint` と `npm run build` を確認してからコミットする
 - PR 本文に `Closes #issue番号` を記載して Issue と紐づける
+- **実装完了後は必ず PR を作成する**（CI 環境での確認のため）
+  - `main` に直接コミットせず、フィーチャーブランチを作成してから PR を出す
+  - ブランチ名の例: `feat/source-management-ui`, `fix/some-bug`
 
 ## コーディング規則
 
