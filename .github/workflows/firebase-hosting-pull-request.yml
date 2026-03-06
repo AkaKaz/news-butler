@@ -58,7 +58,7 @@ jobs:
           import json, os
           creds = {
             'type': 'service_account',
-            'project_id': 'akanmi-news-butler',
+            'project_id': 'akanmi-news-butler-dev',
             'client_email': os.environ['GCS_CLIENT_EMAIL'],
             'private_key': os.environ['GCS_PRIVATE_KEY'].replace('\\\\n', '\\n'),
             'token_uri': 'https://oauth2.googleapis.com/token'
@@ -73,7 +73,7 @@ jobs:
       - name: Upload coverage report to GCS
         if: always()
         run: |
-          BUCKET="akanmi-news-butler.firebasestorage.app"
+          BUCKET="akanmi-news-butler-dev.firebasestorage.app"
           SHA="${{ github.sha }}"
           gsutil -m cp -r functions/coverage/ \
             "gs://${BUCKET}/coverage/${SHA}/"
@@ -81,7 +81,7 @@ jobs:
       - name: Write coverage summary to GitHub Checks
         if: always()
         run: |
-          BUCKET="akanmi-news-butler.firebasestorage.app"
+          BUCKET="akanmi-news-butler-dev.firebasestorage.app"
           SHA="${{ github.sha }}"
           URL="https://storage.googleapis.com/${BUCKET}/coverage/${SHA}/index.html"
           {
@@ -160,7 +160,7 @@ jobs:
           import json, os
           creds = {
             'type': 'service_account',
-            'project_id': 'akanmi-news-butler',
+            'project_id': 'akanmi-news-butler-dev',
             'client_email': os.environ['GCS_CLIENT_EMAIL'],
             'private_key': os.environ['GCS_PRIVATE_KEY'].replace('\\\\n', '\\n'),
             'token_uri': 'https://oauth2.googleapis.com/token'
