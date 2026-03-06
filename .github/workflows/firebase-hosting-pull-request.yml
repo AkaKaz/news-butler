@@ -78,7 +78,7 @@ jobs:
           gsutil cp functions/reports/coverage.html \
             "gs://${BUCKET}/coverage/${SHA}.html"
 
-      - name: Post coverage to PR
+      - name: Post CI report to PR (coverage)
         if: always()
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -86,34 +86,31 @@ jobs:
           BUCKET="akanmi-news-butler-ci"
           SHA="${{ github.sha }}"
           URL="https://storage.googleapis.com/${BUCKET}/coverage/${SHA}.html"
-
           OUTPUT=$(cat /tmp/jest-output.txt 2>/dev/null || echo "")
+          LINES=$(echo "$OUTPUT" | awk '/^All files/{print $5}' \
+            | grep -oP '\d+\.\d+' | head -1)
 
-          extract() {
-            echo "$OUTPUT" | grep "^$1" | grep -oP '\d+\.\d+(?=%)' | head -1
-          }
-          STMTS=$(extract "All files")
-          BRANCH=$(echo "$OUTPUT" | awk '/^All files/{print $3}' | grep -oP '\d+\.\d+' | head -1)
-          FUNCS=$(echo "$OUTPUT" | awk '/^All files/{print $4}' | grep -oP '\d+\.\d+' | head -1)
-          LINES=$(echo "$OUTPUT" | awk '/^All files/{print $5}' | grep -oP '\d+\.\d+' | head -1)
+          if [ -n "$LINES" ]; then
+            COV="📊 Coverage ✅ ${LINES}% lines — [詳細](${URL})"
+          else
+            COV="📊 Coverage ❌ — [詳細](${URL})"
+          fi
 
-          {
-            printf "## 📊 Coverage Report\n\n"
-            printf "| カテゴリ | カバレッジ |\n"
-            printf "|---|---:|\n"
-            printf "| Statements | %s%% |\n" "${STMTS}"
-            printf "| Branches   | %s%% |\n" "${BRANCH}"
-            printf "| Functions  | %s%% |\n" "${FUNCS}"
-            printf "| Lines      | %s%% |\n" "${LINES}"
-            printf "\n[詳細レポートを開く](%s)\n" "${URL}"
-          } > /tmp/coverage-comment.md
+          printf "<!-- ci-report -->\n%s\n" "$COV" > /tmp/ci-report.md
 
-          gh pr comment ${{ github.event.pull_request.number }} \
-            --body-file /tmp/coverage-comment.md --edit-last || \
-          gh pr comment ${{ github.event.pull_request.number }} \
-            --body-file /tmp/coverage-comment.md
+          COMMENT_ID=$(gh api \
+            "repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments" \
+            --jq '[.[] | select(.body | startswith("<!-- ci-report -->"))] | last | .id // empty' \
+            2>/dev/null)
 
-          cat /tmp/coverage-comment.md >> "$GITHUB_STEP_SUMMARY"
+          if [ -n "$COMMENT_ID" ]; then
+            python3 -c "import json; open('/tmp/patch.json','w').write(json.dumps({'body': open('/tmp/ci-report.md').read()}))"
+            gh api "repos/${{ github.repository }}/issues/comments/${COMMENT_ID}" \
+              --method PATCH --input /tmp/patch.json
+          else
+            gh pr comment ${{ github.event.pull_request.number }} \
+              --body-file /tmp/ci-report.md
+          fi
 
       - name: Test report (JUnit)
         if: always()
@@ -191,47 +188,49 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Post VRT results to PR
+      - name: Update CI report with VRT results
         if: always()
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           OUTPUT=$(cat /tmp/reg-suit-output.txt 2>/dev/null || echo "")
-
           CHANGED=$(echo "$OUTPUT" | grep "Changed items:" | grep -oP '\d+' || echo "0")
           NEW=$(echo "$OUTPUT" | grep "New items:" | grep -oP '\d+' || echo "0")
           DELETED=$(echo "$OUTPUT" | grep "Deleted items:" | grep -oP '\d+' || echo "0")
           PASSED=$(echo "$OUTPUT" | grep "Passed items:" | grep -oP '\d+' || echo "0")
           REPORT_URL=$(echo "$OUTPUT" | grep "Report URL:" | grep -oP 'https://\S+' || echo "")
-
           CHANGED=${CHANGED:-0}; NEW=${NEW:-0}; DELETED=${DELETED:-0}; PASSED=${PASSED:-0}
+          TOTAL=$((PASSED + CHANGED + NEW + DELETED))
 
           if [ "$CHANGED" = "0" ] && [ "$NEW" = "0" ] && [ "$DELETED" = "0" ]; then
-            STATUS="✅ 差分なし"
+            VRT="🖼️ VRT ✅ ${PASSED}/${TOTAL}"
           else
-            STATUS="⚠️ 差分あり"
+            DETAIL=""
+            [ "$CHANGED" != "0" ] && DETAIL="${DETAIL}${CHANGED} changed, "
+            [ "$NEW" != "0" ] && DETAIL="${DETAIL}${NEW} new, "
+            [ "$DELETED" != "0" ] && DETAIL="${DETAIL}${DELETED} deleted, "
+            DETAIL="${DETAIL%, }"
+            VRT="🖼️ VRT ⚠️ ${PASSED}/${TOTAL} (${DETAIL})"
           fi
+          [ -n "$REPORT_URL" ] && VRT="${VRT} — [レポート](${REPORT_URL})"
 
-          {
-            printf "## 🖼️ VRT Results\n\n"
-            printf "%s\n\n" "$STATUS"
-            printf "| 状態 | 件数 |\n"
-            printf "|---|---:|\n"
-            printf "| ✅ Passed  | %s |\n" "$PASSED"
-            printf "| ⚠️ Changed | %s |\n" "$CHANGED"
-            printf "| 🆕 New     | %s |\n" "$NEW"
-            printf "| 🗑️ Deleted | %s |\n" "$DELETED"
-            if [ -n "$REPORT_URL" ]; then
-              printf "\n[📊 VRT レポートを開く](%s)\n" "$REPORT_URL"
-            fi
-          } > /tmp/vrt-comment.md
+          COMMENT_ID=$(gh api \
+            "repos/${{ github.repository }}/issues/${{ github.event.pull_request.number }}/comments" \
+            --jq '[.[] | select(.body | startswith("<!-- ci-report -->"))] | last | .id // empty' \
+            2>/dev/null)
 
-          gh pr comment ${{ github.event.pull_request.number }} \
-            --body-file /tmp/vrt-comment.md --edit-last || \
-          gh pr comment ${{ github.event.pull_request.number }} \
-            --body-file /tmp/vrt-comment.md
-
-          cat /tmp/vrt-comment.md >> "$GITHUB_STEP_SUMMARY"
+          if [ -n "$COMMENT_ID" ]; then
+            EXISTING=$(gh api "repos/${{ github.repository }}/issues/comments/${COMMENT_ID}" \
+              --jq '.body')
+            printf "%s\n%s\n" "$EXISTING" "$VRT" > /tmp/ci-report.md
+            python3 -c "import json; open('/tmp/patch.json','w').write(json.dumps({'body': open('/tmp/ci-report.md').read()}))"
+            gh api "repos/${{ github.repository }}/issues/comments/${COMMENT_ID}" \
+              --method PATCH --input /tmp/patch.json
+          else
+            printf "<!-- ci-report -->\n%s\n" "$VRT" > /tmp/ci-report.md
+            gh pr comment ${{ github.event.pull_request.number }} \
+              --body-file /tmp/ci-report.md
+          fi
 
       - name: Upload VRT report artifact
         if: always()
