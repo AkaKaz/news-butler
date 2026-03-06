@@ -97,7 +97,8 @@ jobs:
           FUNCS=$(echo "$OUTPUT" | awk '/^All files/{print $4}' | grep -oP '\d+\.\d+' | head -1)
           LINES=$(echo "$OUTPUT" | awk '/^All files/{print $5}' | grep -oP '\d+\.\d+' | head -1)
 
-          BODY="## 📊 Coverage Report
+          BODY=$(cat <<EOF
+## 📊 Coverage Report
 
 | カテゴリ | カバレッジ |
 |---|---:|
@@ -106,8 +107,9 @@ jobs:
 | Functions  | ${FUNCS}% |
 | Lines      | ${LINES}% |
 
-[詳細レポートを開く](${URL})"
-
+[詳細レポートを開く](${URL})
+EOF
+)
           gh pr comment ${{ github.event.pull_request.number }} \
             --body "$BODY" --edit-last || \
           gh pr comment ${{ github.event.pull_request.number }} \
