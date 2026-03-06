@@ -117,9 +117,65 @@ jobs:
           echo "GOOGLE_APPLICATION_CREDENTIALS=/tmp/gcs-key.json" >> $GITHUB_ENV
 
       - name: Run reg-suit (compare & publish)
-        run: cd frontend && npx reg-suit run
+        run: |
+          cd frontend
+          npx reg-suit run 2>&1 | tee /tmp/reg-suit-output.txt
+          exit ${PIPESTATUS[0]}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Write VRT summary to GitHub Checks
+        if: always()
+        run: |
+          OUTPUT=$(cat /tmp/reg-suit-output.txt 2>/dev/null || echo "")
+
+          CHANGED=$(echo "$OUTPUT" | \
+            grep "Changed items:" | grep -oP '\d+' || echo "0")
+          NEW=$(echo "$OUTPUT" | \
+            grep "New items:" | grep -oP '\d+' || echo "0")
+          DELETED=$(echo "$OUTPUT" | \
+            grep "Deleted items:" | grep -oP '\d+' || echo "0")
+          PASSED=$(echo "$OUTPUT" | \
+            grep "Passed items:" | grep -oP '\d+' || echo "0")
+          REPORT_URL=$(echo "$OUTPUT" | \
+            grep "Report URL:" | grep -oP 'https://\S+' || echo "")
+
+          CHANGED=${CHANGED:-0}
+          NEW=${NEW:-0}
+          DELETED=${DELETED:-0}
+          PASSED=${PASSED:-0}
+
+          if [ "$CHANGED" = "0" ] && [ "$NEW" = "0" ] && \
+             [ "$DELETED" = "0" ]; then
+            STATUS="✅ 差分なし"
+          else
+            STATUS="⚠️ 差分あり"
+          fi
+
+          {
+            echo "## VRT Results (reg-suit)"
+            echo ""
+            echo "$STATUS"
+            echo ""
+            echo "| 状態 | 件数 |"
+            echo "|------|-----:|"
+            echo "| ✅ Passed  | ${PASSED} |"
+            echo "| ⚠️ Changed | ${CHANGED} |"
+            echo "| 🆕 New     | ${NEW} |"
+            echo "| 🗑️ Deleted | ${DELETED} |"
+            echo ""
+            if [ -n "$REPORT_URL" ]; then
+              echo "📊 [VRT レポートを開く](${REPORT_URL})"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: Upload VRT report artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: vrt-report
+          path: frontend/.reg/
+          retention-days: 30
 
   build_and_preview:
     if: ${{ github.event.pull_request.head.repo.full_name == github.repository }}
