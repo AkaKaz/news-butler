@@ -28,7 +28,7 @@ jobs:
           import json, os
           creds = {
             'type': 'service_account',
-            'project_id': 'akanmi-news-butler',
+            'project_id': 'akanmi-news-butler-ci',
             'client_email': os.environ['GCS_CLIENT_EMAIL'],
             'private_key': os.environ['GCS_PRIVATE_KEY'].replace('\\\\n', '\\n'),
             'token_uri': 'https://oauth2.googleapis.com/token'
@@ -40,7 +40,7 @@ jobs:
 
       - name: Delete old GCS reports
         run: |
-          BUCKET="akanmi-news-butler.firebasestorage.app"
+          BUCKET="akanmi-news-butler-ci.firebasestorage.app"
           NULL_SHA="0000000000000000000000000000000000000000"
 
           if [ "${{ github.event_name }}" = "pull_request" ]; then
