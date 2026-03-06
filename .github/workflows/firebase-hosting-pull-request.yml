@@ -97,34 +97,23 @@ jobs:
           FUNCS=$(echo "$OUTPUT" | awk '/^All files/{print $4}' | grep -oP '\d+\.\d+' | head -1)
           LINES=$(echo "$OUTPUT" | awk '/^All files/{print $5}' | grep -oP '\d+\.\d+' | head -1)
 
-          BODY=$(cat <<EOF
-## 📊 Coverage Report
+          {
+            printf "## 📊 Coverage Report\n\n"
+            printf "| カテゴリ | カバレッジ |\n"
+            printf "|---|---:|\n"
+            printf "| Statements | %s%% |\n" "${STMTS}"
+            printf "| Branches   | %s%% |\n" "${BRANCH}"
+            printf "| Functions  | %s%% |\n" "${FUNCS}"
+            printf "| Lines      | %s%% |\n" "${LINES}"
+            printf "\n[詳細レポートを開く](%s)\n" "${URL}"
+          } > /tmp/coverage-comment.md
 
-| カテゴリ | カバレッジ |
-|---|---:|
-| Statements | ${STMTS}% |
-| Branches   | ${BRANCH}% |
-| Functions  | ${FUNCS}% |
-| Lines      | ${LINES}% |
-
-[詳細レポートを開く](${URL})
-EOF
-)
           gh pr comment ${{ github.event.pull_request.number }} \
-            --body "$BODY" --edit-last || \
+            --body-file /tmp/coverage-comment.md --edit-last || \
           gh pr comment ${{ github.event.pull_request.number }} \
-            --body "$BODY"
+            --body-file /tmp/coverage-comment.md
 
-          echo "## 📊 Coverage Report" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "| カテゴリ | カバレッジ |" >> "$GITHUB_STEP_SUMMARY"
-          echo "|---|---:|" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Statements | ${STMTS}% |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Branches   | ${BRANCH}% |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Functions  | ${FUNCS}% |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| Lines      | ${LINES}% |" >> "$GITHUB_STEP_SUMMARY"
-          echo "" >> "$GITHUB_STEP_SUMMARY"
-          echo "[詳細レポートを開く](${URL})" >> "$GITHUB_STEP_SUMMARY"
+          cat /tmp/coverage-comment.md >> "$GITHUB_STEP_SUMMARY"
 
       - name: Test report (JUnit)
         if: always()
