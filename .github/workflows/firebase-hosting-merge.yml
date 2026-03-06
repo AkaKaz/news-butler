@@ -106,7 +106,10 @@ jobs:
           echo "GOOGLE_APPLICATION_CREDENTIALS=/tmp/gcs-key.json" >> $GITHUB_ENV
 
       - name: Run reg-suit (publish baseline to GCS)
-        run: cd frontend && npx reg-suit run
+        run: |
+          cd frontend
+          npx reg-suit run 2>&1 | tee /tmp/reg-suit-output.txt
+          exit ${PIPESTATUS[0]}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
