@@ -124,6 +124,16 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Make VRT snapshot publicly readable
+        run: |
+          SNAPSHOT_KEY=$(grep "The current snapshot key:" \
+            /tmp/reg-suit-output.txt | grep -oP "'[a-f0-9]+'" | tr -d "'")
+          if [ -n "$SNAPSHOT_KEY" ]; then
+            BUCKET="akanmi-news-butler.firebasestorage.app"
+            gsutil -m acl ch -r -u AllUsers:R \
+              "gs://${BUCKET}/vrt/${SNAPSHOT_KEY}/"
+          fi
+
       - name: Write VRT summary to GitHub Checks
         if: always()
         run: |
