@@ -197,11 +197,11 @@ jobs:
           CHECK_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           OUTPUT=$(cat /tmp/reg-suit-output.txt 2>/dev/null || echo "")
-          CHANGED=$(echo "$OUTPUT" | grep "Changed items:" | grep -oP '\d+' | head -1 || echo "0")
-          NEW=$(echo "$OUTPUT" | grep "New items:" | grep -oP '\d+' | head -1 || echo "0")
-          DELETED=$(echo "$OUTPUT" | grep "Deleted items:" | grep -oP '\d+' | head -1 || echo "0")
-          PASSED=$(echo "$OUTPUT" | grep "Passed items:" | grep -oP '\d+' | head -1 || echo "0")
-          REPORT_URL=$(echo "$OUTPUT" | grep "Report URL:" | grep -oP 'https://\S+' || echo "")
+          CHANGED=$(echo "$OUTPUT" | grep -oP 'Changed items: \K\d+' | head -1 || echo "0")
+          NEW=$(echo "$OUTPUT" | grep -oP 'New items: \K\d+' | head -1 || echo "0")
+          DELETED=$(echo "$OUTPUT" | grep -oP 'Deleted items: \K\d+' | head -1 || echo "0")
+          PASSED=$(echo "$OUTPUT" | grep -oP 'Passed items: \K\d+' | head -1 || echo "0")
+          REPORT_URL=$(echo "$OUTPUT" | grep -oP 'Report URL: \K\S+' | head -1 || echo "")
           CHANGED=${CHANGED:-0}; NEW=${NEW:-0}; DELETED=${DELETED:-0}; PASSED=${PASSED:-0}
 
           TITLE="pass ${PASSED}"
