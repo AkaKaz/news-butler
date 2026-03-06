@@ -40,7 +40,7 @@ jobs:
 
       - name: Delete old GCS reports
         run: |
-          BUCKET="akanmi-news-butler-ci.firebasestorage.app"
+          BUCKET="akanmi-news-butler-ci"
           NULL_SHA="0000000000000000000000000000000000000000"
 
           if [ "${{ github.event_name }}" = "pull_request" ]; then

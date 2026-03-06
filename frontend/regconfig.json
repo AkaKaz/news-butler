@@ -11,7 +11,7 @@
   "plugins": {
     "reg-keygen-git-hash-plugin": true,
     "reg-publish-gcs-plugin": {
-      "bucketName": "akanmi-news-butler-ci.firebasestorage.app",
+      "bucketName": "akanmi-news-butler-ci",
       "pathPrefix": "vrt"
     },
     "reg-notify-github-plugin": {
