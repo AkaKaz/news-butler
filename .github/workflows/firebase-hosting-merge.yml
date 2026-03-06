@@ -67,6 +67,8 @@ jobs:
             json.dump(creds, f)
           "
           echo "GOOGLE_APPLICATION_CREDENTIALS=/tmp/gcs-key.json" >> $GITHUB_ENV
+          gcloud auth activate-service-account \
+            --key-file=/tmp/gcs-key.json
 
       - name: Upload coverage report to GCS
         if: always()
@@ -74,8 +76,6 @@ jobs:
           BUCKET="akanmi-news-butler.firebasestorage.app"
           SHA="${{ github.sha }}"
           gsutil -m cp -r functions/coverage/ \
-            "gs://${BUCKET}/coverage/${SHA}/"
-          gsutil -m acl ch -r -u AllUsers:R \
             "gs://${BUCKET}/coverage/${SHA}/"
 
       - uses: FirebaseExtended/action-hosting-deploy@v0
@@ -134,6 +134,8 @@ jobs:
             json.dump(creds, f)
           "
           echo "GOOGLE_APPLICATION_CREDENTIALS=/tmp/gcs-key.json" >> $GITHUB_ENV
+          gcloud auth activate-service-account \
+            --key-file=/tmp/gcs-key.json
 
       - name: Run reg-suit (publish baseline to GCS)
         run: |
