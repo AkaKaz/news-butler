@@ -40,14 +40,6 @@ jobs:
       - name: Functions unit tests with coverage (Jest)
         run: cd functions && npm run test:coverage 2>&1 | tee /tmp/jest-output.txt; exit ${PIPESTATUS[0]}
 
-      - name: Upload coverage report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-report
-          path: functions/coverage/
-          retention-days: 30
-
       - name: Setup GCS credentials for coverage upload
         if: always()
         env:
@@ -106,14 +98,36 @@ jobs:
           gh api "repos/${CHECK_REPO}/check-runs" \
             --method POST --input /tmp/check.json
 
-      - name: Test report (JUnit)
+      - name: Create Unit Tests check
         if: always()
-        uses: dorny/test-reporter@v1
-        with:
-          name: Unit Tests
-          path: functions/reports/junit.xml
-          reporter: jest-junit
-          token: ${{ secrets.GITHUB_TOKEN }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CHECK_REPO: ${{ github.repository }}
+          CHECK_SHA: ${{ github.sha }}
+        run: |
+          OUTPUT=$(cat /tmp/jest-output.txt 2>/dev/null || echo "")
+          PASSED=$(echo "$OUTPUT" | grep -P '^Tests:' | grep -oP '\d+ passed' | grep -oP '^\d+' || echo "")
+          TOTAL=$(echo "$OUTPUT" | grep -P '^Tests:' | grep -oP '\d+ total' | grep -oP '^\d+' || echo "")
+          URL="https://storage.googleapis.com/akanmi-news-butler-ci/coverage/${CHECK_SHA}.html"
+
+          if [ -n "$PASSED" ] && [ -n "$TOTAL" ]; then
+            TITLE="${PASSED}/${TOTAL}"
+            [ "$PASSED" = "$TOTAL" ] && CONCLUSION="success" || CONCLUSION="failure"
+          else
+            TITLE="failed"
+            CONCLUSION="failure"
+          fi
+
+          jq -n \
+            --arg sha "$CHECK_SHA" \
+            --arg conclusion "$CONCLUSION" \
+            --arg title "$TITLE" \
+            --arg summary "[テストレポートを開く](${URL})" \
+            '{name:"Unit Tests",head_sha:$sha,status:"completed",
+              conclusion:$conclusion,output:{title:$title,summary:$summary}}' \
+            > /tmp/check.json
+          gh api "repos/${CHECK_REPO}/check-runs" \
+            --method POST --input /tmp/check.json
 
   visual_regression:
     runs-on: ubuntu-latest

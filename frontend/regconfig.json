@@ -13,6 +13,6 @@
     "reg-publish-gcs-plugin": {
       "bucketName": "akanmi-news-butler-ci",
       "pathPrefix": "vrt"
-    },
+    }
   }
 }
