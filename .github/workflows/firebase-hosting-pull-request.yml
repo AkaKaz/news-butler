@@ -38,7 +38,7 @@ jobs:
         run: cd functions && npm run build
 
       - name: Functions unit tests with coverage (Jest)
-        run: cd functions && npm run test:coverage
+        run: cd functions && npm run test:coverage 2>&1 | tee /tmp/jest-output.txt; exit ${PIPESTATUS[0]}
 
       - name: Upload coverage report
         if: always()
@@ -78,29 +78,51 @@ jobs:
           gsutil cp functions/reports/coverage.html \
             "gs://${BUCKET}/coverage/${SHA}.html"
 
-      - name: Write coverage summary to GitHub Checks
-        if: always()
-        run: |
-          BUCKET="akanmi-news-butler-ci.firebasestorage.app"
-          SHA="${{ github.sha }}"
-          URL="https://storage.googleapis.com/${BUCKET}/coverage/${SHA}.html"
-          {
-            echo "## Coverage Report"
-            echo ""
-            echo "📊 [カバレッジレポートを開く](${URL})"
-          } >> "$GITHUB_STEP_SUMMARY"
-          echo "COVERAGE_URL=${URL}" >> $GITHUB_ENV
-
-      - name: Post coverage URL to PR
+      - name: Post coverage to PR
         if: always()
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          BUCKET="akanmi-news-butler-ci.firebasestorage.app"
+          SHA="${{ github.sha }}"
+          URL="https://storage.googleapis.com/${BUCKET}/coverage/${SHA}.html"
+
+          OUTPUT=$(cat /tmp/jest-output.txt 2>/dev/null || echo "")
+
+          extract() {
+            echo "$OUTPUT" | grep "^$1" | grep -oP '\d+\.\d+(?=%)' | head -1
+          }
+          STMTS=$(extract "All files")
+          BRANCH=$(echo "$OUTPUT" | awk '/^All files/{print $3}' | grep -oP '\d+\.\d+' | head -1)
+          FUNCS=$(echo "$OUTPUT" | awk '/^All files/{print $4}' | grep -oP '\d+\.\d+' | head -1)
+          LINES=$(echo "$OUTPUT" | awk '/^All files/{print $5}' | grep -oP '\d+\.\d+' | head -1)
+
+          BODY="## 📊 Coverage Report
+
+| カテゴリ | カバレッジ |
+|---|---:|
+| Statements | ${STMTS}% |
+| Branches   | ${BRANCH}% |
+| Functions  | ${FUNCS}% |
+| Lines      | ${LINES}% |
+
+[詳細レポートを開く](${URL})"
+
           gh pr comment ${{ github.event.pull_request.number }} \
-            --body "📊 **Coverage Report**: ${COVERAGE_URL}" \
-            --edit-last || \
+            --body "$BODY" --edit-last || \
           gh pr comment ${{ github.event.pull_request.number }} \
-            --body "📊 **Coverage Report**: ${COVERAGE_URL}"
+            --body "$BODY"
+
+          echo "## 📊 Coverage Report" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "| カテゴリ | カバレッジ |" >> "$GITHUB_STEP_SUMMARY"
+          echo "|---|---:|" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Statements | ${STMTS}% |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Branches   | ${BRANCH}% |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Functions  | ${FUNCS}% |" >> "$GITHUB_STEP_SUMMARY"
+          echo "| Lines      | ${LINES}% |" >> "$GITHUB_STEP_SUMMARY"
+          echo "" >> "$GITHUB_STEP_SUMMARY"
+          echo "[詳細レポートを開く](${URL})" >> "$GITHUB_STEP_SUMMARY"
 
       - name: Test report (JUnit)
         if: always()
