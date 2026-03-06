@@ -136,7 +136,25 @@ jobs:
           echo "GOOGLE_APPLICATION_CREDENTIALS=/tmp/gcs-key.json" >> $GITHUB_ENV
 
       - name: Run reg-suit (publish baseline to GCS)
-        run: cd frontend && npx reg-suit run
+        run: |
+          cd frontend
+          npx reg-suit run 2>&1 | tee /tmp/reg-suit-output.txt
+          exit ${PIPESTATUS[0]}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Delete previous main VRT baseline
+        run: |
+          BUCKET="akanmi-news-butler.firebasestorage.app"
+          PREV_SHA="${{ github.event.before }}"
+          NULL_SHA="0000000000000000000000000000000000000000"
+
+          if [ -z "$PREV_SHA" ] || [ "$PREV_SHA" = "$NULL_SHA" ]; then
+            echo "No previous SHA, skipping."
+            exit 0
+          fi
+
+          echo "Deleting previous main VRT baseline: ${PREV_SHA}"
+          gsutil -m rm -r \
+            "gs://${BUCKET}/vrt/${PREV_SHA}/" 2>/dev/null || true
 
