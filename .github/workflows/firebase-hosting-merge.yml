@@ -72,11 +72,11 @@ jobs:
         if: always()
         run: |
           BUCKET="akanmi-news-butler.firebasestorage.app"
-          SHA="${{ github.sha }}"
+          BRANCH="${{ github.ref_name }}"
           gsutil -m cp -r functions/coverage/ \
-            "gs://${BUCKET}/coverage/${SHA}/"
+            "gs://${BUCKET}/coverage/${BRANCH}/"
           gsutil -m acl ch -r -u AllUsers:R \
-            "gs://${BUCKET}/coverage/${SHA}/"
+            "gs://${BUCKET}/coverage/${BRANCH}/"
 
       - uses: FirebaseExtended/action-hosting-deploy@v0
         with:
