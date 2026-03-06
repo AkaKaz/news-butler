@@ -38,31 +38,96 @@ jobs:
         run: cd functions && npm run build
 
       - name: Functions unit tests with coverage (Jest)
-        run: cd functions && npm run test:coverage
+        run: cd functions && npm run test:coverage 2>&1 | tee /tmp/jest-output.txt; exit ${PIPESTATUS[0]}
 
-      - name: Upload coverage report
+      - name: Setup GCS credentials for coverage upload
         if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: coverage-report
-          path: functions/coverage/
-          retention-days: 30
+        env:
+          GCS_CLIENT_EMAIL: ${{ secrets.GCS_CLIENT_EMAIL }}
+          GCS_PRIVATE_KEY: ${{ secrets.GCS_PRIVATE_KEY }}
+        run: |
+          python3 -c "
+          import json, os
+          creds = {
+            'type': 'service_account',
+            'project_id': 'akanmi-news-butler-ci',
+            'client_email': os.environ['GCS_CLIENT_EMAIL'],
+            'private_key': os.environ['GCS_PRIVATE_KEY'].replace('\\\\n', '\\n'),
+            'token_uri': 'https://oauth2.googleapis.com/token'
+          }
+          with open('/tmp/gcs-key.json', 'w') as f:
+            json.dump(creds, f)
+          "
+          echo "GOOGLE_APPLICATION_CREDENTIALS=/tmp/gcs-key.json" >> $GITHUB_ENV
+          gcloud auth activate-service-account \
+            --key-file=/tmp/gcs-key.json
 
-      - name: Test report (JUnit)
+      - name: Upload coverage report to GCS
         if: always()
-        uses: dorny/test-reporter@v1
-        with:
-          name: Functions Tests
-          path: functions/reports/junit.xml
-          reporter: jest-junit
-          token: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          BUCKET="akanmi-news-butler-ci"
+          SHA="${{ github.sha }}"
+          gsutil cp functions/reports/coverage.html \
+            "gs://${BUCKET}/coverage/${SHA}.html"
 
-      - name: Post Functions test results to PR
+      - name: Create coverage check
         if: always()
-        uses: EnricoMi/publish-unit-test-result-action@v2
-        with:
-          files: functions/reports/junit.xml
-          comment_title: Functions Test Results
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CHECK_REPO: ${{ github.repository }}
+          CHECK_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          OUTPUT=$(cat /tmp/jest-output.txt 2>/dev/null || echo "")
+          LINES=$(echo "$OUTPUT" | awk -F'|' '/^All files/{gsub(/ /,"",$5); print $5}' \
+            | grep -oP '\d+\.?\d*' | head -1)
+          URL="https://storage.googleapis.com/akanmi-news-butler-ci/coverage/${CHECK_SHA}.html"
+
+          if [ -n "$LINES" ]; then
+            export TITLE="${LINES}% lines" CONCLUSION="success"
+          else
+            export TITLE="failed" CONCLUSION="failure"
+          fi
+          jq -n \
+            --arg sha "$CHECK_SHA" \
+            --arg conclusion "$CONCLUSION" \
+            --arg title "$TITLE" \
+            --arg summary "[詳細レポートを開く](${URL})" \
+            '{name:"Coverage",head_sha:$sha,status:"completed",
+              conclusion:$conclusion,output:{title:$title,summary:$summary}}' \
+            > /tmp/check.json
+          gh api "repos/${CHECK_REPO}/check-runs" \
+            --method POST --input /tmp/check.json
+
+      - name: Create Unit Tests check
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CHECK_REPO: ${{ github.repository }}
+          CHECK_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          OUTPUT=$(cat /tmp/jest-output.txt 2>/dev/null || echo "")
+          PASSED=$(echo "$OUTPUT" | grep -P '^Tests:' | grep -oP '\d+ passed' | grep -oP '^\d+' || echo "")
+          TOTAL=$(echo "$OUTPUT" | grep -P '^Tests:' | grep -oP '\d+ total' | grep -oP '^\d+' || echo "")
+          URL="https://storage.googleapis.com/akanmi-news-butler-ci/coverage/${CHECK_SHA}.html"
+
+          if [ -n "$PASSED" ] && [ -n "$TOTAL" ]; then
+            TITLE="${PASSED}/${TOTAL}"
+            [ "$PASSED" = "$TOTAL" ] && CONCLUSION="success" || CONCLUSION="failure"
+          else
+            TITLE="failed"
+            CONCLUSION="failure"
+          fi
+
+          jq -n \
+            --arg sha "$CHECK_SHA" \
+            --arg conclusion "$CONCLUSION" \
+            --arg title "$TITLE" \
+            --arg summary "[テストレポートを開く](${URL})" \
+            '{name:"Unit Tests",head_sha:$sha,status:"completed",
+              conclusion:$conclusion,output:{title:$title,summary:$summary}}' \
+            > /tmp/check.json
+          gh api "repos/${CHECK_REPO}/check-runs" \
+            --method POST --input /tmp/check.json
 
   visual_regression:
     runs-on: ubuntu-latest
@@ -106,7 +171,7 @@ jobs:
           import json, os
           creds = {
             'type': 'service_account',
-            'project_id': 'akanmi-news-butler',
+            'project_id': 'akanmi-news-butler-ci',
             'client_email': os.environ['GCS_CLIENT_EMAIL'],
             'private_key': os.environ['GCS_PRIVATE_KEY'].replace('\\\\n', '\\n'),
             'token_uri': 'https://oauth2.googleapis.com/token'
@@ -124,50 +189,46 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Write VRT summary to GitHub Checks
+      - name: Create VRT check
         if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          CHECK_REPO: ${{ github.repository }}
+          CHECK_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           OUTPUT=$(cat /tmp/reg-suit-output.txt 2>/dev/null || echo "")
+          CHANGED=$(echo "$OUTPUT" | grep -oP 'Changed items: \K\d+' | head -1 || echo "0")
+          NEW=$(echo "$OUTPUT" | grep -oP 'New items: \K\d+' | head -1 || echo "0")
+          DELETED=$(echo "$OUTPUT" | grep -oP 'Deleted items: \K\d+' | head -1 || echo "0")
+          PASSED=$(echo "$OUTPUT" | grep -oP 'Passed items: \K\d+' | head -1 || echo "0")
+          REPORT_URL=$(echo "$OUTPUT" | grep -oP 'Report URL: \K\S+' | head -1 || echo "")
+          CHANGED=${CHANGED:-0}; NEW=${NEW:-0}; DELETED=${DELETED:-0}; PASSED=${PASSED:-0}
 
-          CHANGED=$(echo "$OUTPUT" | \
-            grep "Changed items:" | grep -oP '\d+' || echo "0")
-          NEW=$(echo "$OUTPUT" | \
-            grep "New items:" | grep -oP '\d+' || echo "0")
-          DELETED=$(echo "$OUTPUT" | \
-            grep "Deleted items:" | grep -oP '\d+' || echo "0")
-          PASSED=$(echo "$OUTPUT" | \
-            grep "Passed items:" | grep -oP '\d+' || echo "0")
-          REPORT_URL=$(echo "$OUTPUT" | \
-            grep "Report URL:" | grep -oP 'https://\S+' || echo "")
+          TITLE="pass ${PASSED}"
+          [ "$NEW" != "0" ]     && TITLE="${TITLE}, new ${NEW}"
+          [ "$DELETED" != "0" ] && TITLE="${TITLE}, delete ${DELETED}"
+          [ "$CHANGED" != "0" ] && TITLE="${TITLE}, changed ${CHANGED}"
 
-          CHANGED=${CHANGED:-0}
-          NEW=${NEW:-0}
-          DELETED=${DELETED:-0}
-          PASSED=${PASSED:-0}
-
-          if [ "$CHANGED" = "0" ] && [ "$NEW" = "0" ] && \
-             [ "$DELETED" = "0" ]; then
-            STATUS="✅ 差分なし"
+          if [ "$CHANGED" != "0" ]; then
+            CONCLUSION="failure"
+          elif [ "$NEW" != "0" ] || [ "$DELETED" != "0" ]; then
+            CONCLUSION="neutral"
           else
-            STATUS="⚠️ 差分あり"
+            CONCLUSION="success"
           fi
 
-          {
-            echo "## VRT Results (reg-suit)"
-            echo ""
-            echo "$STATUS"
-            echo ""
-            echo "| 状態 | 件数 |"
-            echo "|------|-----:|"
-            echo "| ✅ Passed  | ${PASSED} |"
-            echo "| ⚠️ Changed | ${CHANGED} |"
-            echo "| 🆕 New     | ${NEW} |"
-            echo "| 🗑️ Deleted | ${DELETED} |"
-            echo ""
-            if [ -n "$REPORT_URL" ]; then
-              echo "📊 [VRT レポートを開く](${REPORT_URL})"
-            fi
-          } >> "$GITHUB_STEP_SUMMARY"
+          SUMMARY=""
+          [ -n "$REPORT_URL" ] && SUMMARY="[レポートを開く](${REPORT_URL})"
+          jq -n \
+            --arg sha "$CHECK_SHA" \
+            --arg conclusion "$CONCLUSION" \
+            --arg title "$TITLE" \
+            --arg summary "$SUMMARY" \
+            '{name:"VRT",head_sha:$sha,status:"completed",
+              conclusion:$conclusion,output:{title:$title,summary:$summary}}' \
+            > /tmp/check.json
+          gh api "repos/${CHECK_REPO}/check-runs" \
+            --method POST --input /tmp/check.json
 
       - name: Upload VRT report artifact
         if: always()

@@ -14,9 +14,15 @@ const config: Config = {
   reporters: [
     "default",
     ["jest-junit", {outputDirectory: "reports", outputName: "junit.xml"}],
+    ["jest-html-reporters", {
+      publicPath: "./reports",
+      filename: "coverage.html",
+      openReport: false,
+      inlineSource: true,
+    }],
   ],
   coverageDirectory: "coverage",
-  coverageReporters: ["text", "html", "lcov"],
+  coverageReporters: ["text", "lcov"],
 };
 
 export default config;
