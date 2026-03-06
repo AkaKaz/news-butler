@@ -89,6 +89,18 @@ jobs:
             echo ""
             echo "📊 [カバレッジレポートを開く](${URL})"
           } >> "$GITHUB_STEP_SUMMARY"
+          echo "COVERAGE_URL=${URL}" >> $GITHUB_ENV
+
+      - name: Post coverage URL to PR
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr comment ${{ github.event.pull_request.number }} \
+            --body "📊 **Coverage Report**: ${COVERAGE_URL}" \
+            --edit-last || \
+          gh pr comment ${{ github.event.pull_request.number }} \
+            --body "📊 **Coverage Report**: ${COVERAGE_URL}"
 
       - name: Test report (JUnit)
         if: always()
