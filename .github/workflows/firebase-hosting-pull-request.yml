@@ -72,18 +72,18 @@ jobs:
         if: always()
         run: |
           BUCKET="akanmi-news-butler.firebasestorage.app"
-          BRANCH="${{ github.head_ref }}"
+          SHA="${{ github.sha }}"
           gsutil -m cp -r functions/coverage/ \
-            "gs://${BUCKET}/coverage/${BRANCH}/"
+            "gs://${BUCKET}/coverage/${SHA}/"
           gsutil -m acl ch -r -u AllUsers:R \
-            "gs://${BUCKET}/coverage/${BRANCH}/"
+            "gs://${BUCKET}/coverage/${SHA}/"
 
       - name: Write coverage summary to GitHub Checks
         if: always()
         run: |
           BUCKET="akanmi-news-butler.firebasestorage.app"
-          BRANCH="${{ github.head_ref }}"
-          URL="https://storage.googleapis.com/${BUCKET}/coverage/${BRANCH}/index.html"
+          SHA="${{ github.sha }}"
+          URL="https://storage.googleapis.com/${BUCKET}/coverage/${SHA}/index.html"
           {
             echo "## Coverage Report"
             echo ""
