@@ -1,0 +1,21 @@
+{
+  "core": {
+    "workingDir": ".reg",
+    "actualDir": "tests/snapshots-actual",
+    "thresholdRate": 0.01,
+    "addIgnore": true,
+    "ximgdiff": {
+      "invocationType": "client"
+    }
+  },
+  "plugins": {
+    "reg-keygen-git-hash-plugin": true,
+    "reg-publish-gcs-plugin": {
+      "bucketName": "akanmi-news-butler.firebasestorage.app",
+      "pathPrefix": "vrt"
+    },
+    "reg-notify-github-plugin": {
+      "prComment": true
+    }
+  }
+}
