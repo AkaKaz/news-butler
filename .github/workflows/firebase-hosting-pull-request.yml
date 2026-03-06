@@ -75,11 +75,11 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CHECK_REPO: ${{ github.repository }}
-          CHECK_SHA: ${{ github.sha }}
+          CHECK_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           OUTPUT=$(cat /tmp/jest-output.txt 2>/dev/null || echo "")
-          LINES=$(echo "$OUTPUT" | awk '/^All files/{print $5}' \
-            | grep -oP '\d+\.\d+' | head -1)
+          LINES=$(echo "$OUTPUT" | awk -F'|' '/^All files/{gsub(/ /,"",$5); print $5}' \
+            | grep -oP '\d+\.?\d*' | head -1)
           URL="https://storage.googleapis.com/akanmi-news-butler-ci/coverage/${CHECK_SHA}.html"
 
           if [ -n "$LINES" ]; then
@@ -103,7 +103,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CHECK_REPO: ${{ github.repository }}
-          CHECK_SHA: ${{ github.sha }}
+          CHECK_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           OUTPUT=$(cat /tmp/jest-output.txt 2>/dev/null || echo "")
           PASSED=$(echo "$OUTPUT" | grep -P '^Tests:' | grep -oP '\d+ passed' | grep -oP '^\d+' || echo "")
@@ -194,7 +194,7 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           CHECK_REPO: ${{ github.repository }}
-          CHECK_SHA: ${{ github.sha }}
+          CHECK_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
           OUTPUT=$(cat /tmp/reg-suit-output.txt 2>/dev/null || echo "")
           CHANGED=$(echo "$OUTPUT" | grep "Changed items:" | grep -oP '\d+' || echo "0")
