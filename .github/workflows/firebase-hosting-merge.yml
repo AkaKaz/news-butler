@@ -104,8 +104,6 @@ jobs:
             json.dump(creds, f)
           "
           echo "GOOGLE_APPLICATION_CREDENTIALS=/tmp/gcs-key.json" >> $GITHUB_ENV
-          gcloud auth activate-service-account \
-            --key-file=/tmp/gcs-key.json
 
       - name: Run reg-suit (publish baseline to GCS)
         run: |
@@ -114,14 +112,4 @@ jobs:
           exit ${PIPESTATUS[0]}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Make VRT baseline publicly readable
-        run: |
-          SNAPSHOT_KEY=$(grep "The current snapshot key:" \
-            /tmp/reg-suit-output.txt | grep -oP "'[a-f0-9]+'" | tr -d "'")
-          if [ -n "$SNAPSHOT_KEY" ]; then
-            BUCKET="akanmi-news-butler.firebasestorage.app"
-            gsutil -m acl ch -r -u AllUsers:R \
-              "gs://${BUCKET}/vrt/${SNAPSHOT_KEY}/"
-          fi
 
