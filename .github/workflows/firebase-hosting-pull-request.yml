@@ -75,15 +75,15 @@ jobs:
         run: |
           BUCKET="akanmi-news-butler-ci.firebasestorage.app"
           SHA="${{ github.sha }}"
-          gsutil -m cp -r functions/coverage/ \
-            "gs://${BUCKET}/coverage/${SHA}/"
+          gsutil cp functions/reports/coverage.html \
+            "gs://${BUCKET}/coverage/${SHA}.html"
 
       - name: Write coverage summary to GitHub Checks
         if: always()
         run: |
           BUCKET="akanmi-news-butler-ci.firebasestorage.app"
           SHA="${{ github.sha }}"
-          URL="https://storage.googleapis.com/${BUCKET}/coverage/${SHA}/index.html"
+          URL="https://storage.googleapis.com/${BUCKET}/coverage/${SHA}.html"
           {
             echo "## Coverage Report"
             echo ""
