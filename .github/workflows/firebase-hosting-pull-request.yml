@@ -48,6 +48,48 @@ jobs:
           path: functions/coverage/
           retention-days: 30
 
+      - name: Setup GCS credentials for coverage upload
+        if: always()
+        env:
+          GCS_CLIENT_EMAIL: ${{ secrets.GCS_CLIENT_EMAIL }}
+          GCS_PRIVATE_KEY: ${{ secrets.GCS_PRIVATE_KEY }}
+        run: |
+          python3 -c "
+          import json, os
+          creds = {
+            'type': 'service_account',
+            'project_id': 'akanmi-news-butler',
+            'client_email': os.environ['GCS_CLIENT_EMAIL'],
+            'private_key': os.environ['GCS_PRIVATE_KEY'].replace('\\\\n', '\\n'),
+            'token_uri': 'https://oauth2.googleapis.com/token'
+          }
+          with open('/tmp/gcs-key.json', 'w') as f:
+            json.dump(creds, f)
+          "
+          echo "GOOGLE_APPLICATION_CREDENTIALS=/tmp/gcs-key.json" >> $GITHUB_ENV
+
+      - name: Upload coverage report to GCS
+        if: always()
+        run: |
+          BUCKET="akanmi-news-butler.firebasestorage.app"
+          SHA="${{ github.sha }}"
+          gsutil -m cp -r functions/coverage/ \
+            "gs://${BUCKET}/coverage/${SHA}/"
+          gsutil -m acl ch -r -u AllUsers:R \
+            "gs://${BUCKET}/coverage/${SHA}/"
+
+      - name: Write coverage summary to GitHub Checks
+        if: always()
+        run: |
+          BUCKET="akanmi-news-butler.firebasestorage.app"
+          SHA="${{ github.sha }}"
+          URL="https://storage.googleapis.com/${BUCKET}/coverage/${SHA}/index.html"
+          {
+            echo "## Coverage Report"
+            echo ""
+            echo "📊 [カバレッジレポートを開く](${URL})"
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Test report (JUnit)
         if: always()
         uses: dorny/test-reporter@v1

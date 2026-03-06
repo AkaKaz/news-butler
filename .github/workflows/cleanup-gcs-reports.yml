@@ -1,0 +1,66 @@
+name: Cleanup GCS reports
+
+on:
+  # PR クローズ時（マージ・非マージ両方）
+  pull_request:
+    types: [closed]
+  # force push 時（main 以外のブランチ）
+  push:
+    branches-ignore: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  cleanup:
+    # PR クローズ or force push のときのみ実行
+    if: |
+      github.event_name == 'pull_request' ||
+      (github.event_name == 'push' && github.event.forced == true)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Setup GCS credentials
+        env:
+          GCS_CLIENT_EMAIL: ${{ secrets.GCS_CLIENT_EMAIL }}
+          GCS_PRIVATE_KEY: ${{ secrets.GCS_PRIVATE_KEY }}
+        run: |
+          python3 -c "
+          import json, os
+          creds = {
+            'type': 'service_account',
+            'project_id': 'akanmi-news-butler',
+            'client_email': os.environ['GCS_CLIENT_EMAIL'],
+            'private_key': os.environ['GCS_PRIVATE_KEY'].replace('\\\\n', '\\n'),
+            'token_uri': 'https://oauth2.googleapis.com/token'
+          }
+          with open('/tmp/gcs-key.json', 'w') as f:
+            json.dump(creds, f)
+          "
+          echo "GOOGLE_APPLICATION_CREDENTIALS=/tmp/gcs-key.json" >> $GITHUB_ENV
+
+      - name: Delete old GCS reports
+        run: |
+          BUCKET="akanmi-news-butler.firebasestorage.app"
+          NULL_SHA="0000000000000000000000000000000000000000"
+
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            # PR クローズ: PR の HEAD コミットのレポートを削除
+            SHA="${{ github.event.pull_request.head.sha }}"
+          else
+            # force push: 上書きされた旧コミットのレポートを削除
+            SHA="${{ github.event.before }}"
+          fi
+
+          # 空・null SHA はスキップ
+          if [ -z "$SHA" ] || [ "$SHA" = "$NULL_SHA" ]; then
+            echo "No SHA to clean up, skipping."
+            exit 0
+          fi
+
+          echo "Deleting reports for SHA: ${SHA}"
+
+          gsutil -m rm -r "gs://${BUCKET}/vrt/${SHA}/" 2>/dev/null || true
+          gsutil -m rm -r "gs://${BUCKET}/coverage/${SHA}/" 2>/dev/null \
+            || true
+
+          echo "Cleanup complete."
