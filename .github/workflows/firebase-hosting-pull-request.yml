@@ -446,10 +446,69 @@ jobs:
           npm run build
 
       - uses: FirebaseExtended/action-hosting-deploy@v0
+        id: deploy
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_AKANMI_NEWS_BUTLER }}
           projectId: akanmi-news-butler
+
+      - name: Register preview domain to Firebase Auth
+        env:
+          FIREBASE_SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_AKANMI_NEWS_BUTLER }}
+          PREVIEW_URL: ${{ steps.deploy.outputs.details_url }}
+        run: |
+          PREVIEW_HOST=$(echo "$PREVIEW_URL" | sed 's|https://||' | sed 's|/.*||')
+          echo "$FIREBASE_SA" > /tmp/sa.json
+          gcloud auth activate-service-account --key-file=/tmp/sa.json --quiet
+          ACCESS_TOKEN=$(gcloud auth print-access-token)
+          CURRENT=$(curl -sf \
+            -H "Authorization: Bearer $ACCESS_TOKEN" \
+            "https://identitytoolkit.googleapis.com/admin/v2/projects/akanmi-news-butler/config" \
+            | python3 -c "import json,sys; print(json.dumps(json.load(sys.stdin).get('authorizedDomains', [])))")
+          NEW_DOMAINS=$(python3 -c "
+          import json, os
+          domains = json.loads(os.environ['CURRENT'])
+          host = os.environ['PREVIEW_HOST']
+          if host not in domains:
+              domains.append(host)
+          print(json.dumps(domains))
+          " CURRENT="$CURRENT" PREVIEW_HOST="$PREVIEW_HOST")
+          curl -sf -X PATCH \
+            -H "Authorization: Bearer $ACCESS_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "{\"authorizedDomains\": $NEW_DOMAINS}" \
+            "https://identitytoolkit.googleapis.com/admin/v2/projects/akanmi-news-butler/config?updateMask=authorizedDomains"
+          echo "Registered: $PREVIEW_HOST"
+
+  unregister_preview_domain:
+    if: github.event.action == 'closed' && github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - name: Remove preview domain from Firebase Auth
+        env:
+          FIREBASE_SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_AKANMI_NEWS_BUTLER }}
+          PR_NUMBER:   ${{ github.event.pull_request.number }}
+        run: |
+          echo "$FIREBASE_SA" > /tmp/sa.json
+          gcloud auth activate-service-account --key-file=/tmp/sa.json --quiet
+          ACCESS_TOKEN=$(gcloud auth print-access-token)
+          CURRENT=$(curl -sf \
+            -H "Authorization: Bearer $ACCESS_TOKEN" \
+            "https://identitytoolkit.googleapis.com/admin/v2/projects/akanmi-news-butler/config" \
+            | python3 -c "import json,sys; print(json.dumps(json.load(sys.stdin).get('authorizedDomains', [])))")
+          NEW_DOMAINS=$(python3 -c "
+          import json, os, re
+          domains = json.loads(os.environ['CURRENT'])
+          pattern = re.compile(r'akanmi-news-butler--pr' + os.environ['PR_NUMBER'] + r'-.*\.web\.app')
+          domains = [d for d in domains if not pattern.match(d)]
+          print(json.dumps(domains))
+          " CURRENT="$CURRENT" PR_NUMBER="$PR_NUMBER")
+          curl -sf -X PATCH \
+            -H "Authorization: Bearer $ACCESS_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d "{\"authorizedDomains\": $NEW_DOMAINS}" \
+            "https://identitytoolkit.googleapis.com/admin/v2/projects/akanmi-news-butler/config?updateMask=authorizedDomains"
+          echo "Removed preview domains for PR #$PR_NUMBER"
 
   report_comment:
     needs: [lint_and_check, frontend_check, visual_regression]
