@@ -343,30 +343,17 @@ jobs:
           PR_NUMBER: ${{ github.event.pull_request.number }}
           REPO: ${{ github.repository }}
           TESTS_ICON: ${{ needs.lint_and_check.outputs.tests_icon }}
-          TESTS_COUNTS: ${{ needs.lint_and_check.outputs.tests_counts }}
           COV_ICON: ${{ needs.lint_and_check.outputs.cov_icon }}
-          COV_PERCENT: ${{ needs.lint_and_check.outputs.cov_percent }}
-          COV_URL: ${{ needs.lint_and_check.outputs.cov_url }}
           VRT_ICON: ${{ needs.visual_regression.outputs.vrt_icon }}
-          VRT_COUNTS: ${{ needs.visual_regression.outputs.vrt_counts }}
-          VRT_URL: ${{ needs.visual_regression.outputs.vrt_url }}
         run: |
-          TESTS_CELL="${TESTS_ICON} ${TESTS_COUNTS}"
-          COV_CELL="${COV_ICON} ${COV_PERCENT}%"
-          VRT_CELL="${VRT_ICON} ${VRT_COUNTS}"
-
-          [ -n "$COV_URL" ]  && TESTS_LINK="[レポート](${COV_URL})"  || TESTS_LINK="—"
-          [ -n "$COV_URL" ]  && COV_LINK="[詳細](${COV_URL})"        || COV_LINK="—"
-          [ -n "$VRT_URL" ]  && VRT_LINK="[レポート](${VRT_URL})"    || VRT_LINK="—"
-
-          BODY=$(printf \
-            '<!-- ci-report -->\n| | 結果 | レポート |\n|---|---|---|\n'\
-            '| 🧪 Unit Tests | %s | %s |\n'\
-            '| 📊 Coverage | %s | %s |\n'\
-            '| 🖼️ VRT | %s | %s |' \
-            "${TESTS_CELL}" "${TESTS_LINK}" \
-            "${COV_CELL}" "${COV_LINK}" \
-            "${VRT_CELL}" "${VRT_LINK}")
+          FMT='<!-- ci-report -->\n| | 結果 |\n|---|---|\n'
+          FMT+='| 🧪 Unit Tests | %s |\n'
+          FMT+='| 📊 Coverage | %s |\n'
+          FMT+='| 🖼️ VRT | %s |'
+          BODY=$(printf "$FMT" \
+            "${TESTS_ICON}" \
+            "${COV_ICON}" \
+            "${VRT_ICON}")
 
           COMMENT_ID=$(gh api "repos/${REPO}/issues/${PR_NUMBER}/comments" \
             --jq '.[] | select(.body | contains("<!-- ci-report -->")) | .id' | head -1)
