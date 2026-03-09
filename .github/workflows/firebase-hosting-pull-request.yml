@@ -63,14 +63,14 @@ jobs:
       - name: Upload Functions UT report to GCS
         if: always()
         run: |
-          SHA="${{ github.sha }}"
+          SHA="${{ github.event.pull_request.head.sha }}"
           gsutil cp functions/reports/test-report.html \
             "gs://akanmi-news-butler-ci/functions/ut/${SHA}.html"
 
       - name: Upload Functions Coverage report to GCS
         if: always()
         run: |
-          SHA="${{ github.sha }}"
+          SHA="${{ github.event.pull_request.head.sha }}"
           gsutil -m cp -r functions/coverage/. \
             "gs://akanmi-news-butler-ci/functions/coverage/${SHA}"
 
@@ -194,14 +194,14 @@ jobs:
       - name: Upload Frontend UT report to GCS
         if: always()
         run: |
-          SHA="${{ github.sha }}"
+          SHA="${{ github.event.pull_request.head.sha }}"
           gsutil -m cp -r frontend/html/. \
             "gs://akanmi-news-butler-ci/frontend/ut/${SHA}"
 
       - name: Upload Frontend Coverage report to GCS
         if: always()
         run: |
-          SHA="${{ github.sha }}"
+          SHA="${{ github.event.pull_request.head.sha }}"
           gsutil -m cp -r frontend/coverage/. \
             "gs://akanmi-news-butler-ci/frontend/coverage/${SHA}"
 
