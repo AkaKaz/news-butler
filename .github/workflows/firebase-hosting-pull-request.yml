@@ -11,6 +11,9 @@ permissions:
 jobs:
   lint_and_check:
     runs-on: ubuntu-latest
+    outputs:
+      tests_line: ${{ steps.format_lines.outputs.tests_line }}
+      cov_line: ${{ steps.format_lines.outputs.cov_line }}
     steps:
       - uses: actions/checkout@v4
 
@@ -129,9 +132,30 @@ jobs:
           gh api "repos/${CHECK_REPO}/check-runs" \
             --method POST --input /tmp/check.json
 
+      - name: Format report lines
+        id: format_lines
+        if: always()
+        env:
+          CHECK_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          OUTPUT=$(cat /tmp/jest-output.txt 2>/dev/null || echo "")
+          PASSED=$(echo "$OUTPUT" | grep -P '^Tests:' | grep -oP '\d+ passed' | grep -oP '^\d+' || echo "?")
+          TOTAL=$(echo "$OUTPUT" | grep -P '^Tests:' | grep -oP '\d+ total' | grep -oP '^\d+' || echo "?")
+          LINES=$(echo "$OUTPUT" | awk -F'|' '/^All files/{gsub(/ /,"",$5); print $5}' \
+            | grep -oP '\d+\.?\d*' | head -1 || echo "?")
+          COV_URL="https://storage.googleapis.com/akanmi-news-butler-ci/coverage/${CHECK_SHA}.html"
+
+          [ "$PASSED" = "$TOTAL" ] && T_ICON="✅" || T_ICON="❌"
+          [ "$LINES" != "?" ] && C_ICON="✅" || C_ICON="❌"
+
+          echo "tests_line=🧪 Unit Tests ${T_ICON} ${PASSED}/${TOTAL} — [レポート](${COV_URL})" >> $GITHUB_OUTPUT
+          echo "cov_line=📊 Coverage ${C_ICON} ${LINES}% — [詳細](${COV_URL})" >> $GITHUB_OUTPUT
+
   visual_regression:
     runs-on: ubuntu-latest
     needs: lint_and_check
+    outputs:
+      vrt_line: ${{ steps.format_vrt.outputs.vrt_line }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -230,6 +254,39 @@ jobs:
           gh api "repos/${CHECK_REPO}/check-runs" \
             --method POST --input /tmp/check.json
 
+      - name: Format VRT report line
+        id: format_vrt
+        if: always()
+        run: |
+          OUTPUT=$(cat /tmp/reg-suit-output.txt 2>/dev/null || echo "")
+          CHANGED=$(echo "$OUTPUT" | grep -oP 'Changed items: \K\d+' | head -1 || echo "0")
+          NEW=$(echo "$OUTPUT" | grep -oP 'New items: \K\d+' | head -1 || echo "0")
+          DELETED=$(echo "$OUTPUT" | grep -oP 'Deleted items: \K\d+' | head -1 || echo "0")
+          PASSED=$(echo "$OUTPUT" | grep -oP 'Passed items: \K\d+' | head -1 || echo "0")
+          REPORT_URL=$(echo "$OUTPUT" | grep -oP 'Report URL: \K\S+' | head -1 || echo "")
+          CHANGED=${CHANGED:-0}; NEW=${NEW:-0}; DELETED=${DELETED:-0}; PASSED=${PASSED:-0}
+
+          COUNTS="${PASSED} pass"
+          [ "$CHANGED" != "0" ] && COUNTS="${COUNTS}, ${CHANGED} changed"
+          [ "$NEW" != "0" ]     && COUNTS="${COUNTS}, ${NEW} new"
+          [ "$DELETED" != "0" ] && COUNTS="${COUNTS}, ${DELETED} deleted"
+
+          if [ "$CHANGED" != "0" ]; then
+            ICON="❌"
+          elif [ "$NEW" != "0" ] || [ "$DELETED" != "0" ]; then
+            ICON="⚠️"
+          else
+            ICON="✅"
+          fi
+
+          if [ -n "$REPORT_URL" ]; then
+            VRT_LINE="🖼️ VRT ${ICON} ${COUNTS} — [レポート](${REPORT_URL})"
+          else
+            VRT_LINE="🖼️ VRT ${ICON} ${COUNTS}"
+          fi
+
+          echo "vrt_line=${VRT_LINE}" >> $GITHUB_OUTPUT
+
       - name: Upload VRT report artifact
         if: always()
         uses: actions/upload-artifact@v4
@@ -270,3 +327,33 @@ jobs:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_AKANMI_NEWS_BUTLER }}
           projectId: akanmi-news-butler
+
+  report_comment:
+    needs: [lint_and_check, visual_regression]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Post consolidated CI report comment
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          REPO: ${{ github.repository }}
+          TESTS_LINE: ${{ needs.lint_and_check.outputs.tests_line }}
+          COV_LINE: ${{ needs.lint_and_check.outputs.cov_line }}
+          VRT_LINE: ${{ needs.visual_regression.outputs.vrt_line }}
+        run: |
+          BODY="<!-- ci-report -->
+${TESTS_LINE}
+${COV_LINE}
+${VRT_LINE}"
+
+          COMMENT_ID=$(gh api "repos/${REPO}/issues/${PR_NUMBER}/comments" \
+            --jq '.[] | select(.body | contains("<!-- ci-report -->")) | .id' | head -1)
+
+          if [ -n "$COMMENT_ID" ]; then
+            gh api "repos/${REPO}/issues/comments/${COMMENT_ID}" \
+              --method PATCH --field body="$BODY"
+          else
+            gh api "repos/${REPO}/issues/${PR_NUMBER}/comments" \
+              --method POST --field body="$BODY"
+          fi
