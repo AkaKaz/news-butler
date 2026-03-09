@@ -465,14 +465,14 @@ jobs:
             -H "Authorization: Bearer $ACCESS_TOKEN" \
             "https://identitytoolkit.googleapis.com/admin/v2/projects/akanmi-news-butler/config" \
             | python3 -c "import json,sys; print(json.dumps(json.load(sys.stdin).get('authorizedDomains', [])))")
-          NEW_DOMAINS=$(python3 -c "
+          NEW_DOMAINS=$(CURRENT="$CURRENT" PREVIEW_HOST="$PREVIEW_HOST" python3 -c "
           import json, os
           domains = json.loads(os.environ['CURRENT'])
           host = os.environ['PREVIEW_HOST']
           if host not in domains:
               domains.append(host)
           print(json.dumps(domains))
-          " CURRENT="$CURRENT" PREVIEW_HOST="$PREVIEW_HOST")
+          ")
           curl -sf -X PATCH \
             -H "Authorization: Bearer $ACCESS_TOKEN" \
             -H "Content-Type: application/json" \
@@ -496,13 +496,13 @@ jobs:
             -H "Authorization: Bearer $ACCESS_TOKEN" \
             "https://identitytoolkit.googleapis.com/admin/v2/projects/akanmi-news-butler/config" \
             | python3 -c "import json,sys; print(json.dumps(json.load(sys.stdin).get('authorizedDomains', [])))")
-          NEW_DOMAINS=$(python3 -c "
+          NEW_DOMAINS=$(CURRENT="$CURRENT" PR_NUMBER="$PR_NUMBER" python3 -c "
           import json, os, re
           domains = json.loads(os.environ['CURRENT'])
           pattern = re.compile(r'akanmi-news-butler--pr' + os.environ['PR_NUMBER'] + r'-.*\.web\.app')
           domains = [d for d in domains if not pattern.match(d)]
           print(json.dumps(domains))
-          " CURRENT="$CURRENT" PR_NUMBER="$PR_NUMBER")
+          ")
           curl -sf -X PATCH \
             -H "Authorization: Bearer $ACCESS_TOKEN" \
             -H "Content-Type: application/json" \
