@@ -1,2 +1,3 @@
-<h1>ダッシュボード</h1>
-<p>ナビゲーションからページを選んでください。</p>
+<script lang="ts">
+  // Redirected by +page.ts
+</script>

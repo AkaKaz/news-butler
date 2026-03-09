@@ -3,8 +3,8 @@
 > **サービス名**: News Butler（ニュースバトラー）
 > **リポジトリ**: `news-butler`
 > **コンセプト**: RSSを収集し、指定したトピックで記事をAIまとめ、Webで読む
-> **Version**: 2.0.0
-> **Last Updated**: 2026-03-05
+> **Version**: 2.1.0
+> **Last Updated**: 2026-03-09
 > **Status**: Active
 
 ---
@@ -33,11 +33,11 @@
 
 > **「RSSを登録して、トピックを指定すれば、AIまとめがWebで読める」**
 
-- RSSフィードの登録・管理
-- 定期的な記事収集
-- 記事のAI分析（要約・キーワード・カテゴリ）
-- トピック指定によるAIダイジェスト生成
-- WebアプリでRSS管理・記事一覧・ダイジェスト閲覧
+- RSSフィードの登録・管理（トピックに紐付け）
+- 定期的な記事収集・AI要約
+- まとめ方（スケジュール・プロンプト）の設定
+- 要約をもとにしたAI記事生成
+- WebアプリでトピックごとのAI記事を閲覧
 
 ### 1.3 将来フェーズ（Phase 1では実装しない）
 
@@ -59,40 +59,54 @@
 ┌─────────────────────────────────────────────┐
 │         Web アプリ（SvelteKit）              │
 │                                             │
-│  ソース管理 │ トピック管理 │ ダイジェスト閲覧 │
-│            │ 記事一覧     │                 │
+│  ダイジェスト │ 要約記事 │ 設定              │
+│              │          │  ソース一覧        │
+│              │          │  トピック一覧      │
 └────────────┬────────────────────────────────┘
              │ REST API
 ┌────────────▼────────────────────────────────┐
 │         Cloud Functions                      │
 │                                             │
-│  api（Express）   ←→  fetchRss（Scheduler）  │
-│                        analyzeArticle        │
-│                        generateDigest        │
+│  api（Express）   ←→  fetchAndSummarize      │
+│                        （Scheduler）         │
+│                        generateArticle       │
 └────────────┬────────────────────────────────┘
              │
 ┌────────────▼──────┐  ┌────────────────────┐
 │    Firestore       │  │   Vertex AI         │
 │                   │  │   (Gemini 1.5 Pro)   │
-│  sources           │  │                    │
-│  articles          │  │  記事分析・要約      │
-│  topics            │  │  ダイジェスト生成    │
-│  digests           │  └────────────────────┘
+│  topics            │  │                    │
+│  sources           │  │  要約生成            │
+│  digest_configs    │  │  記事生成            │
+│  summaries         │  └────────────────────┘
+│  articles          │
 └───────────────────┘
 ```
 
 ### 2.1 データフロー
 
 ```
-ユーザーがRSS登録
+[設定]
+ユーザーがトピックを作成
     ↓
-Cloud Scheduler（毎時）→ fetchRss → 新着記事をFirestoreに保存
+ソースをトピックに紐付け登録
     ↓
-Firestoreトリガー → analyzeArticle → AI要約・キーワード・カテゴリをArticleに書き戻し
+まとめ方（digest_config）を設定（スケジュール・プロンプト）
+
+[収集・分析]
+Cloud Scheduler → fetchAndSummarize → 各ソースからRSS取得
     ↓
-ユーザーがトピック指定 or 定期スケジュール → generateDigest → DigestをFirestoreに保存
+Vertex AI でトピック単位にAI要約 → summaries に保存
+
+[記事生成]
+digest_config のスケジュール or 手動 → generateArticle
     ↓
-WebアプリでDigest閲覧
+対象期間の summaries + digest_config のプロンプト → Vertex AI
+    ↓
+articles に保存
+
+[閲覧]
+WebアプリでAI生成記事（articles）を閲覧
 ```
 
 ---
@@ -101,12 +115,12 @@ WebアプリでDigest閲覧
 
 | レイヤー | 技術 | 用途 |
 |---------|------|------|
-| フロントエンド | SvelteKit + TypeScript | Webアプリ |
+| フロントエンド | SvelteKit + TypeScript + TailwindCSS + DaisyUI | Webアプリ |
 | ホスティング | Firebase Hosting | SPA配信 |
 | バックエンド | Cloud Functions (TypeScript) | API・バッチ処理 |
-| データベース | Cloud Firestore | 全データ |
-| AI | Vertex AI (Gemini 1.5 Pro) | 記事分析・ダイジェスト生成 |
-| スケジューラ | Cloud Scheduler | RSS定期収集 |
+| データベース | Cloud Firestore（フラット構成） | 全データ |
+| AI | Vertex AI (Gemini 1.5 Pro) | 要約・記事生成 |
+| スケジューラ | Cloud Scheduler | 定期収集・生成 |
 | 認証 | Firebase Auth | ユーザー認証 |
 | CI/CD | GitHub Actions | テスト・デプロイ |
 
@@ -114,114 +128,136 @@ WebアプリでDigest閲覧
 
 ## 4. データモデル
 
-### 4.1 `sources/{sourceId}` — RSSソース
+Firestoreのコレクションはすべてトップレベル（フラット構成）。
+各ドキュメントのIDはFirestoreの自動生成ID。
 
-| フィールド | 型 | 説明 |
-|-----------|-----|------|
-| `name` | `string` | ソース名 |
-| `url` | `string` | RSS フィード URL |
-| `category` | `string` | カテゴリ（任意） |
-| `tags` | `string[]` | タグ |
-| `isActive` | `boolean` | 有効/無効 |
-| `fetchIntervalMinutes` | `number` | 巡回間隔（分）デフォルト: 60 |
-| `lastFetchedAt` | `Timestamp \| null` | 最終取得日時 |
-| `consecutiveErrors` | `number` | 連続エラー回数（3回で自動無効化） |
-| `createdAt` | `Timestamp` | 作成日時 |
-| `updatedAt` | `Timestamp` | 更新日時 |
+### 4.1 `topics/{topicId}` — トピック
 
-### 4.2 `articles/{articleId}` — 収集記事
-
-| フィールド | 型 | 説明 |
-|-----------|-----|------|
-| `sourceId` | `string` | RSSソースID |
-| `sourceName` | `string` | ソース名（非正規化） |
-| `title` | `string` | 記事タイトル |
-| `url` | `string` | 記事URL（ユニーク） |
-| `content` | `string` | 本文テキスト（最大5,000文字） |
-| `author` | `string \| null` | 著者 |
-| `publishedAt` | `Timestamp` | 公開日時 |
-| `fetchedAt` | `Timestamp` | 取得日時 |
-| `isProcessed` | `boolean` | AI分析完了フラグ |
-| `aiSummary` | `string \| null` | AI要約（200文字以内） |
-| `aiKeywords` | `string[]` | AIキーワード（最大5個） |
-| `aiCategory` | `string \| null` | AIカテゴリ |
-| `aiRelevanceScore` | `number \| null` | 重要度スコア (0-100) |
-
-### 4.3 `topics/{topicId}` — トピック
-
-ユーザーが「どんな記事をまとめてほしいか」を定義する。
+ユーザーが「何について知りたいか」を定義する基本単位。
 
 | フィールド | 型 | 説明 |
 |-----------|-----|------|
 | `name` | `string` | トピック名（例: 「AI最新動向」） |
 | `description` | `string` | トピックの説明（AIへの指示に使用） |
-| `keywords` | `string[]` | 関連キーワード |
-| `sourceIds` | `string[]` | 対象RSSソースID（空の場合は全ソース） |
-| `scheduleEnabled` | `boolean` | 定期生成の有効/無効 |
-| `scheduleCron` | `string \| null` | 生成スケジュール（cron式） |
+| `analysisConfig` | `object` | 分析軸設定（後述） |
 | `isActive` | `boolean` | 有効/無効 |
 | `createdAt` | `Timestamp` | 作成日時 |
 | `updatedAt` | `Timestamp` | 更新日時 |
 
-### 4.4 `digests/{digestId}` — AIダイジェスト
+**`analysisConfig` フィールド（JSON）:**
+
+| キー | 型 | 説明 |
+|-----|-----|------|
+| `keywords` | `string[]` | 注目キーワード（フィルタ・重み付けに使用） |
+| `language` | `string` | 要約言語（例: `"ja"`, `"en"`） |
+| `maxArticlesPerSummary` | `number` | 1要約あたりの最大記事数（デフォルト: 20） |
+
+### 4.2 `sources/{sourceId}` — RSSソース
+
+各ソースは1つのトピックに紐付く。
 
 | フィールド | 型 | 説明 |
 |-----------|-----|------|
-| `topicId` | `string` | トピックID |
-| `topicName` | `string` | トピック名（非正規化） |
-| `content` | `string` | 生成されたダイジェスト本文（Markdown） |
-| `articleIds` | `string[]` | 使用した記事ID群 |
-| `articleCount` | `number` | 使用記事数 |
+| `topicId` | `string` | 紐付くトピックID（FK） |
+| `name` | `string` | ソース名 |
+| `url` | `string` | RSS フィード URL |
+| `type` | `string` | ソース種別（`"rss"`, `"atom"` など） |
+| `isActive` | `boolean` | 有効/無効 |
+| `lastFetchedAt` | `Timestamp \| null` | 最終取得日時 |
+| `consecutiveErrors` | `number` | 連続エラー回数（3回で自動無効化） |
+| `createdAt` | `Timestamp` | 作成日時 |
+| `updatedAt` | `Timestamp` | 更新日時 |
+
+### 4.3 `digest_configs/{configId}` — まとめ方
+
+「いつ・どのように記事を生成するか」を定義する。
+
+| フィールド | 型 | 説明 |
+|-----------|-----|------|
+| `topicId` | `string` | 紐付くトピックID（FK） |
+| `name` | `string` | 設定名（例: 「毎朝のまとめ」） |
+| `schedule` | `string \| null` | cron式（例: `"0 8 * * *"`）、nullは手動のみ |
+| `promptTemplate` | `string` | 記事生成プロンプトのテンプレート |
+| `periodHours` | `number` | 対象期間（時間）デフォルト: 24 |
+| `isActive` | `boolean` | 有効/無効 |
+| `lastRunAt` | `Timestamp \| null` | 最終実行日時 |
+| `createdAt` | `Timestamp` | 作成日時 |
+| `updatedAt` | `Timestamp` | 更新日時 |
+
+### 4.4 `summaries/{summaryId}` — AI要約
+
+RSSから収集した記事をトピック単位でAI分析した結果。
+
+| フィールド | 型 | 説明 |
+|-----------|-----|------|
+| `topicId` | `string` | トピックID（FK） |
+| `content` | `string` | AI要約テキスト（Markdown） |
+| `sourceUrls` | `string[]` | 参照した記事URL群 |
+| `articleCount` | `number` | 参照記事数 |
 | `periodStart` | `Timestamp` | 対象期間の開始 |
 | `periodEnd` | `Timestamp` | 対象期間の終了 |
-| `generatedAt` | `Timestamp` | 生成日時 |
+| `createdAt` | `Timestamp` | 生成日時 |
+
+### 4.5 `articles/{articleId}` — AI生成記事
+
+`digest_config` の指示と `summaries` をもとにAIが生成した最終記事。
+
+| フィールド | 型 | 説明 |
+|-----------|-----|------|
+| `digestConfigId` | `string` | 使用したdigest_configのID（FK） |
+| `topicId` | `string` | トピックID（非正規化、クエリ用） |
+| `summaryIds` | `string[]` | 使用したsummaryのID群 |
+| `content` | `string` | 生成された記事本文（Markdown） |
+| `createdAt` | `Timestamp` | 生成日時 |
 
 ---
 
 ## 5. 機能仕様
 
-### 5.1 ソース管理
+### 5.1 トピック管理
 
-- RSSフィードURLを登録・編集・削除・有効/無効切り替え
+- トピックの登録・編集・削除・有効/無効切り替え
+- `analysisConfig`（キーワード・言語・記事数上限）の設定
+
+### 5.2 ソース管理
+
+- RSSフィードURLをトピックに紐付けて登録・編集・削除・有効/無効切り替え
 - URLバリデーション（RSSフィードとして有効か確認）
-- 連続エラー3回でソースを自動無効化・ユーザーに通知
+- 連続エラー3回でソースを自動無効化
 
-### 5.2 RSS収集（fetchRss）
+### 5.3 まとめ方（digest_config）管理
 
-- Cloud Scheduler が1時間ごとに全アクティブソースを巡回
-- `rss-parser` ライブラリでフィードを取得
-- URLの重複チェックでDBにない記事だけ保存
-- 取得成功後に `lastFetchedAt` を更新
-- エラー時は `consecutiveErrors` をインクリメント
+- digest_configの登録・編集・削除
+- スケジュール（cron式）または手動実行の設定
+- プロンプトテンプレートの編集
 
-### 5.3 AI記事分析（analyzeArticle）
+### 5.4 RSS収集・AI要約（fetchAndSummarize）
 
-- Firestore の `articles` コレクションに新規ドキュメントが作成されたとき発火
-- Vertex AI (Gemini 1.5 Pro) に記事本文を送信し以下を取得:
-  - **aiSummary**: 200文字以内の要約
-  - **aiKeywords**: 記事を表すキーワード最大5個
-  - **aiCategory**: 記事カテゴリ（例: テクノロジー、ビジネス、科学）
-  - **aiRelevanceScore**: 一般的な重要度スコア 0-100
-- 結果を同ドキュメントに書き戻し、`isProcessed = true` に更新
+- Cloud Scheduler が定期的（デフォルト: 毎時）に全アクティブソースを巡回
+- `rss-parser` でフィードを取得
+- トピック単位で未処理記事をまとめてVertex AI (Gemini 1.5 Pro) に送信
+- `analysisConfig` に基づきAI要約を生成 → `summaries` に保存
+- 取得成功後に `lastFetchedAt` を更新、エラー時は `consecutiveErrors` をインクリメント
 
-### 5.4 ダイジェスト生成（generateDigest）
+### 5.5 AI記事生成（generateArticle）
 
-- ユーザーがWebUIから「今すぐ生成」ボタンを押す、またはスケジュール発火
-- トピックの `description` と `keywords` をもとに、対象期間の記事（デフォルト: 過去24時間）から関連記事を選定
-- 選定した記事をVertex AI (Gemini 1.5 Pro) に渡してダイジェストを生成
-  - 形式: Markdown
-  - 内容: 各記事の重要ポイント、トレンドのまとめ、注目事項
-- 生成結果を `digests` コレクションに保存
+- `digest_config` のスケジュール発火 or ユーザーが手動で「今すぐ生成」
+- 対象期間内の `summaries` を取得
+- `summaries` の内容 + `promptTemplate` を Vertex AI に送信
+- 生成結果を `articles` に保存
 
-### 5.5 WebアプリのUI
+### 5.6 WebアプリのUI
 
 | 画面 | 内容 |
 |------|------|
-| ダッシュボード | 最新ダイジェスト一覧、ソース稼働状況 |
-| ソース管理 | RSS登録・編集・削除・有効/無効切り替え |
-| 記事一覧 | ソース別・キーワード別フィルタ、AI要約表示 |
-| トピック管理 | トピック登録・編集・削除 |
-| ダイジェスト詳細 | Markdownレンダリング、使用記事リスト |
+| ダイジェスト（記事一覧） | AI生成記事の一覧、トピック別フィルタ |
+| 記事詳細 | Markdownレンダリング、参照summary |
+| 設定 > ソース一覧 | ソースの登録・編集・削除・有効/無効 |
+| 設定 > トピック一覧 | トピック・まとめ方の設定 |
+
+**レイアウト:**
+- PC/タブレット（lg+）: 左固定サイドバー + メインコンテンツ
+- モバイル: 下部タブバー + 横スワイプで画面切り替え
 
 ---
 
@@ -229,39 +265,47 @@ WebアプリでDigest閲覧
 
 すべてのAPIは Firebase Auth の ID Token で認証。
 
-### Sources
-
-| Method | Path | 説明 |
-|--------|------|------|
-| GET | `/api/sources` | ソース一覧 |
-| POST | `/api/sources` | ソース追加 |
-| PUT | `/api/sources/:id` | ソース更新 |
-| DELETE | `/api/sources/:id` | ソース削除 |
-| POST | `/api/sources/:id/toggle` | 有効/無効切り替え |
-
-### Articles
-
-| Method | Path | 説明 |
-|--------|------|------|
-| GET | `/api/articles` | 記事一覧（フィルタ: sourceId, keyword, from, to, limit） |
-| GET | `/api/articles/:id` | 記事詳細 |
-
 ### Topics
 
 | Method | Path | 説明 |
 |--------|------|------|
 | GET | `/api/topics` | トピック一覧 |
-| POST | `/api/topics` | トピック追加 |
+| POST | `/api/topics` | トピック作成 |
 | PUT | `/api/topics/:id` | トピック更新 |
 | DELETE | `/api/topics/:id` | トピック削除 |
 
-### Digests
+### Sources
 
 | Method | Path | 説明 |
 |--------|------|------|
-| GET | `/api/digests` | ダイジェスト一覧（フィルタ: topicId） |
-| GET | `/api/digests/:id` | ダイジェスト詳細 |
-| POST | `/api/digests/generate` | ダイジェスト手動生成（body: topicId, from?, to?） |
+| GET | `/api/sources?topicId=` | ソース一覧（topicId必須） |
+| POST | `/api/sources` | ソース追加（body: topicId必須） |
+| PUT | `/api/sources/:id` | ソース更新 |
+| DELETE | `/api/sources/:id` | ソース削除 |
+| POST | `/api/sources/:id/toggle` | 有効/無効切り替え |
+
+### Digest Configs
+
+| Method | Path | 説明 |
+|--------|------|------|
+| GET | `/api/digest-configs?topicId=` | まとめ方一覧（topicId必須） |
+| POST | `/api/digest-configs` | まとめ方作成 |
+| PUT | `/api/digest-configs/:id` | まとめ方更新 |
+| DELETE | `/api/digest-configs/:id` | まとめ方削除 |
+
+### Summaries
+
+| Method | Path | 説明 |
+|--------|------|------|
+| GET | `/api/summaries?topicId=` | 要約一覧（フィルタ: topicId, from, to） |
+
+### Articles
+
+| Method | Path | 説明 |
+|--------|------|------|
+| GET | `/api/articles` | 記事一覧（フィルタ: topicId, digestConfigId） |
+| GET | `/api/articles/:id` | 記事詳細 |
+| POST | `/api/articles/generate` | 記事手動生成（body: digestConfigId, from?, to?） |
 
 ---
 
@@ -270,9 +314,8 @@ WebアプリでDigest閲覧
 | Function名 | トリガー | 説明 |
 |-----------|---------|------|
 | `api` | HTTP（Express） | REST API |
-| `fetchRss` | Cloud Scheduler（毎時） | 全アクティブソースのRSS取得 |
-| `analyzeArticle` | Firestore onCreate（articles） | 記事AI分析 |
-| `generateDigestScheduled` | Cloud Scheduler（Topic設定に従う） | スケジュールダイジェスト生成 |
+| `fetchAndSummarize` | Cloud Scheduler（毎時） | RSS収集 + トピック単位AI要約 |
+| `generateArticleScheduled` | Cloud Scheduler（digest_config設定に従う） | スケジュール記事生成 |
 
 ---
 
@@ -282,34 +325,36 @@ WebアプリでDigest閲覧
 news-butler/
 ├── functions/
 │   └── src/
-│       ├── index.ts              # Functions エントリポイント
-│       ├── types.ts              # 全インターフェース定義
+│       ├── index.ts                    # Functions エントリポイント
+│       ├── types.ts                    # 全インターフェース定義
 │       ├── services/
-│       │   ├── rssService.ts     # RSS取得
-│       │   └── vertexAiService.ts # Vertex AI ラッパー
+│       │   ├── rssService.ts           # RSS取得
+│       │   └── vertexAiService.ts      # Vertex AI ラッパー
 │       ├── api/
-│       │   ├── router.ts         # Express ルーター
-│       │   ├── sources.ts        # ソース CRUD
-│       │   ├── articles.ts       # 記事取得
-│       │   ├── topics.ts         # トピック CRUD
-│       │   └── digests.ts        # ダイジェスト操作
+│       │   ├── router.ts               # Express ルーター
+│       │   ├── topics.ts               # トピック CRUD
+│       │   ├── sources.ts              # ソース CRUD
+│       │   ├── digestConfigs.ts        # まとめ方 CRUD
+│       │   ├── summaries.ts            # 要約取得
+│       │   └── articles.ts             # 記事取得・手動生成
 │       └── handlers/
-│           ├── fetchRss.ts       # RSS収集バッチ
-│           ├── analyzeArticle.ts # 記事分析トリガー
-│           └── generateDigest.ts # ダイジェスト生成ロジック
+│           ├── fetchAndSummarize.ts    # RSS収集・要約バッチ
+│           └── generateArticle.ts      # 記事生成ロジック
 ├── frontend/
 │   └── src/
 │       ├── lib/
-│       │   ├── api.ts            # API クライアント
-│       │   └── firebase.ts       # Firebase 初期化
+│       │   ├── api.ts                  # API クライアント
+│       │   └── firebase.ts             # Firebase 初期化
 │       └── routes/
-│           ├── +page.svelte      # ダッシュボード
-│           ├── sources/          # ソース管理
-│           ├── articles/         # 記事一覧
-│           ├── topics/           # トピック管理
-│           └── digests/          # ダイジェスト閲覧
+│           ├── +layout.svelte          # サイドバー/タブバーレイアウト
+│           ├── digests/                # AI生成記事一覧・詳細
+│           ├── articles/               # 要約記事一覧（summaries）
+│           └── settings/
+│               ├── sources/            # ソース管理
+│               └── topics/             # トピック・まとめ方管理
 ├── firebase.json
 ├── firestore.rules
+├── firestore.indexes.json
 └── Spec.md
 ```
 
@@ -323,28 +368,27 @@ news-butler/
 
 | # | Issue | 内容 | 依存 |
 |---|-------|------|------|
-| 1 | types.ts | 全インターフェース定義 | - |
+| 1 | types.ts | 全インターフェース定義（Topic, Source, DigestConfig, Summary, Article） | - |
 | 2 | vertexAiService.ts | Vertex AI（Gemini）ラッパー | 1 |
 | 3 | rssService.ts | RSS取得サービス | 1 |
 | 4 | REST API 基盤 | Express + 認証ミドルウェア | 1 |
-| 5 | ソース管理 API | Source CRUD | 4 |
-| 6 | 記事取得 API | Article 一覧・詳細 | 4 |
-| 7 | トピック管理 API | Topic CRUD | 4 |
-| 8 | ダイジェスト API | Digest 生成・取得 | 4,7 |
-| 9 | fetchRss Function | RSS収集バッチ | 3 |
-| 10 | analyzeArticle Function | 記事AI分析トリガー | 2 |
-| 11 | generateDigest Function | ダイジェスト生成ロジック | 2,7,8 |
-| 12 | フロントエンド基盤 | SvelteKit 初期化・API クライアント | - |
-| 13 | ソース管理UI | 登録・編集・削除画面 | 12,5 |
-| 14 | 記事一覧UI | フィルタ付き一覧 | 12,6 |
-| 15 | トピック管理UI | 登録・編集・削除画面 | 12,7 |
-| 16 | ダイジェスト閲覧UI | Markdown表示・記事リスト | 12,8 |
-| 17 | ダッシュボード | 最新ダイジェスト・ソース状態 | 13〜16 |
+| 5 | トピック API | Topic CRUD | 4 |
+| 6 | ソース API | Source CRUD | 4 |
+| 7 | まとめ方 API | DigestConfig CRUD | 4 |
+| 8 | 要約 API | Summary 取得 | 4 |
+| 9 | 記事 API | Article 取得・手動生成 | 4,7,8 |
+| 10 | fetchAndSummarize | RSS収集・AI要約バッチ | 2,3 |
+| 11 | generateArticle | 記事生成ロジック | 2,7,8 |
+| 12 | フロントエンド基盤 | レイアウト・API クライアント・認証 | - |
+| 13 | ソース管理UI | 登録・編集・削除画面 | 12,6 |
+| 14 | トピック管理UI | トピック・まとめ方設定画面 | 12,5,7 |
+| 15 | ダイジェスト閲覧UI | AI生成記事一覧・詳細 | 12,9 |
+| 16 | 要約記事UI | Summary一覧 | 12,8 |
 
 ### Phase 2 — 品質改善
 
-- Good / Bad フィードバック機能（記事・ダイジェストへの評価）
-- フィードバックをもとにしたダイジェスト生成の精度向上
+- Good / Bad フィードバック機能
+- フィードバックをもとにしたプロンプト改善
 - 記事クラスタリング（類似記事のグループ化）
 - コンプライアンス基盤（robots.txt チェック）
 
