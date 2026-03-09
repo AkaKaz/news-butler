@@ -16,13 +16,13 @@ const config: Config = {
     ["jest-junit", {outputDirectory: "reports", outputName: "junit.xml"}],
     ["jest-html-reporters", {
       publicPath: "./reports",
-      filename: "coverage.html",
+      filename: "test-report.html",
       openReport: false,
       inlineSource: true,
     }],
   ],
   coverageDirectory: "coverage",
-  coverageReporters: ["text", "lcov"],
+  coverageReporters: ["text", "lcov", "html"],
 };
 
 export default config;
