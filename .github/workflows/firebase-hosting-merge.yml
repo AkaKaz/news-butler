@@ -48,6 +48,36 @@ jobs:
           path: functions/coverage/
           retention-days: 30
 
+      - name: Setup GCS credentials for coverage upload
+        if: always()
+        env:
+          GCS_CLIENT_EMAIL: ${{ secrets.GCS_CLIENT_EMAIL }}
+          GCS_PRIVATE_KEY: ${{ secrets.GCS_PRIVATE_KEY }}
+        run: |
+          python3 -c "
+          import json, os
+          creds = {
+            'type': 'service_account',
+            'project_id': 'akanmi-news-butler-ci',
+            'client_email': os.environ['GCS_CLIENT_EMAIL'],
+            'private_key': os.environ['GCS_PRIVATE_KEY'].replace('\\\\n', '\\n'),
+            'token_uri': 'https://oauth2.googleapis.com/token'
+          }
+          with open('/tmp/gcs-key.json', 'w') as f:
+            json.dump(creds, f)
+          "
+          echo "GOOGLE_APPLICATION_CREDENTIALS=/tmp/gcs-key.json" >> $GITHUB_ENV
+          gcloud auth activate-service-account \
+            --key-file=/tmp/gcs-key.json
+
+      - name: Upload coverage report to GCS
+        if: always()
+        run: |
+          BUCKET="akanmi-news-butler-ci"
+          SHA="${{ github.sha }}"
+          gsutil cp functions/reports/coverage.html \
+            "gs://${BUCKET}/coverage/${SHA}.html"
+
       - uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
@@ -95,7 +125,7 @@ jobs:
           import json, os
           creds = {
             'type': 'service_account',
-            'project_id': 'akanmi-news-butler',
+            'project_id': 'akanmi-news-butler-ci',
             'client_email': os.environ['GCS_CLIENT_EMAIL'],
             'private_key': os.environ['GCS_PRIVATE_KEY'].replace('\\\\n', '\\n'),
             'token_uri': 'https://oauth2.googleapis.com/token'
@@ -104,6 +134,8 @@ jobs:
             json.dump(creds, f)
           "
           echo "GOOGLE_APPLICATION_CREDENTIALS=/tmp/gcs-key.json" >> $GITHUB_ENV
+          gcloud auth activate-service-account \
+            --key-file=/tmp/gcs-key.json
 
       - name: Run reg-suit (publish baseline to GCS)
         run: |
@@ -112,4 +144,21 @@ jobs:
           exit ${PIPESTATUS[0]}
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Delete previous main reports
+        run: |
+          BUCKET="akanmi-news-butler-ci"
+          PREV_SHA="${{ github.event.before }}"
+          NULL_SHA="0000000000000000000000000000000000000000"
+
+          if [ -z "$PREV_SHA" ] || [ "$PREV_SHA" = "$NULL_SHA" ]; then
+            echo "No previous SHA, skipping."
+            exit 0
+          fi
+
+          echo "Deleting previous main reports: ${PREV_SHA}"
+          gsutil -m rm -r \
+            "gs://${BUCKET}/vrt/${PREV_SHA}/" 2>/dev/null || true
+          gsutil rm \
+            "gs://${BUCKET}/coverage/${PREV_SHA}.html" 2>/dev/null || true
 
