@@ -7,29 +7,19 @@
 
   let { children } = $props();
 
-  const tabPaths = ["/digests", "/articles", "/sources"];
+  const tabPaths = ["/articles", "/topics"];
 
   function isActive(path: string): boolean {
     const p = page.url.pathname;
-    if (path === "/digests") return p === "/digests" || p === "/";
-    if (path === "/articles") return p.startsWith("/articles");
-    if (path === "/sources") return p.startsWith("/sources") || p.startsWith("/topics");
+    if (path === "/articles") return p === "/articles" || p === "/";
+    if (path === "/topics") return p.startsWith("/topics");
     return false;
   }
 
   function currentTabIndex(): number {
-    if (isActive("/articles")) return 1;
-    if (isActive("/sources")) return 2;
+    if (isActive("/topics")) return 1;
     return 0;
   }
-
-  let settingsOpen = $state(false);
-  $effect(() => {
-    const p = page.url.pathname;
-    if (p.startsWith("/sources") || p.startsWith("/topics")) {
-      settingsOpen = true;
-    }
-  });
 
   let touchStartX = 0;
   let touchStartY = 0;
@@ -133,43 +123,20 @@
       <!-- Nav Tree -->
       <ul class="menu menu-md flex-1 px-3 py-4 gap-0.5">
         <li>
-          <a href="/digests" class:active={isActive("/digests")} class="nav-link">
-            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
-            </svg>
-            ダイジェスト
-          </a>
-        </li>
-        <li>
           <a href="/articles" class:active={isActive("/articles")} class="nav-link">
             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+              <path stroke-linecap="round" stroke-linejoin="round" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z"/>
             </svg>
-            要約記事
+            記事
           </a>
         </li>
         <li>
-          <details bind:open={settingsOpen}>
-            <summary class="nav-link">
-              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
-                <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-              </svg>
-              設定
-            </summary>
-            <ul>
-              <li>
-                <a href="/sources" class:active={page.url.pathname.startsWith("/sources")} class="nav-link text-sm">
-                  ソース一覧
-                </a>
-              </li>
-              <li>
-                <a href="/topics" class:active={page.url.pathname.startsWith("/topics")} class="nav-link text-sm">
-                  トピック一覧
-                </a>
-              </li>
-            </ul>
-          </details>
+          <a href="/topics" class:active={isActive("/topics")} class="nav-link">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/>
+            </svg>
+            トピック
+          </a>
         </li>
       </ul>
 
@@ -199,27 +166,21 @@
     <!-- ── Bottom tab bar: mobile only ── -->
     <nav class="btm-tabs lg:hidden fixed bottom-0 inset-x-0 flex border-t border-base-200 bg-base-100/95 backdrop-blur-sm safe-bottom">
       {#each [
-        { path: "/digests", label: "ダイジェスト", icon: "home" },
-        { path: "/articles", label: "要約記事", icon: "doc" },
-        { path: "/sources", label: "設定", icon: "gear" },
+        { path: "/articles", label: "記事" },
+        { path: "/topics", label: "トピック" },
       ] as tab}
         <button
           class="tab-btn flex-1 flex flex-col items-center justify-center py-2 gap-0.5 transition-colors duration-150"
           class:active={isActive(tab.path)}
           onclick={() => navigateTo(tab.path)}
         >
-          {#if tab.icon === "home"}
+          {#if tab.path === "/articles"}
             <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
-            </svg>
-          {:else if tab.icon === "doc"}
-            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+              <path stroke-linecap="round" stroke-linejoin="round" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z"/>
             </svg>
           {:else}
             <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/>
-              <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+              <path stroke-linecap="round" stroke-linejoin="round" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/>
             </svg>
           {/if}
           <span class="text-[10px] font-medium leading-none">{tab.label}</span>

@@ -531,7 +531,7 @@ jobs:
           VRT_ICON:    ${{ needs.visual_regression.outputs.vrt_icon }}
           VRT_URL:     ${{ needs.visual_regression.outputs.vrt_url }}
         run: |
-          label() { [ "$1" = "✅" ] && echo "✅ 成功" || echo "❌ 失敗"; }
+          label() { if [ "$1" = "✅" ]; then echo "✅ 成功"; elif [ "$1" = "⚠️" ]; then echo "⚠️ 新規"; else echo "❌ 失敗"; fi; }
           link()  { [ -n "$1" ] && echo "[レポート]($1)" || echo "—"; }
           FMT='<!-- ci-report -->\n| | 結果 | レポート |\n|---|---|---|\n'
           FMT+='| ⚙️ Functions UT       | %s | %s |\n'
