@@ -212,7 +212,7 @@ jobs:
           CHECK_REPO: ${{ github.repository }}
           CHECK_SHA:  ${{ github.event.pull_request.head.sha }}
         run: |
-          OUTPUT=$(cat /tmp/vitest-output.txt 2>/dev/null || echo "")
+          OUTPUT=$(cat /tmp/vitest-output.txt 2>/dev/null | sed 's/\x1b\[[0-9;]*m//g' || echo "")
           PASSED=$(echo "$OUTPUT" | grep -oP 'Tests\s+\K\d+(?= passed)' | head -1 || echo "")
           TOTAL=$(echo "$OUTPUT"  | grep -oP '\d+(?=\)$)'               | head -1 || echo "")
           URL="https://storage.googleapis.com/akanmi-news-butler-ci/frontend/ut/${CHECK_SHA}/index.html"
@@ -258,7 +258,7 @@ jobs:
         env:
           CHECK_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
-          OUTPUT=$(cat /tmp/vitest-output.txt 2>/dev/null || echo "")
+          OUTPUT=$(cat /tmp/vitest-output.txt 2>/dev/null | sed 's/\x1b\[[0-9;]*m//g' || echo "")
           PASSED=$(echo "$OUTPUT" | grep -oP 'Tests\s+\K\d+(?= passed)' | head -1 || echo "?")
           TOTAL=$(echo "$OUTPUT"  | grep -oP '\d+(?=\)$)'               | head -1 || echo "?")
           LINES=$(echo "$OUTPUT"  | awk -F'|' '/^All files/{gsub(/ /,"",$5); print $5}' \
