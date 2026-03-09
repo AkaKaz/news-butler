@@ -359,12 +359,14 @@ jobs:
           [ -n "$COV_URL" ]  && COV_LINK="[詳細](${COV_URL})"        || COV_LINK="—"
           [ -n "$VRT_URL" ]  && VRT_LINK="[レポート](${VRT_URL})"    || VRT_LINK="—"
 
-          BODY="<!-- ci-report -->
-| | 結果 | レポート |
-|---|---|---|
-| 🧪 Unit Tests | ${TESTS_CELL} | ${TESTS_LINK} |
-| 📊 Coverage | ${COV_CELL} | ${COV_LINK} |
-| 🖼️ VRT | ${VRT_CELL} | ${VRT_LINK} |"
+          BODY=$(printf \
+            '<!-- ci-report -->\n| | 結果 | レポート |\n|---|---|---|\n'\
+            '| 🧪 Unit Tests | %s | %s |\n'\
+            '| 📊 Coverage | %s | %s |\n'\
+            '| 🖼️ VRT | %s | %s |' \
+            "${TESTS_CELL}" "${TESTS_LINK}" \
+            "${COV_CELL}" "${COV_LINK}" \
+            "${VRT_CELL}" "${VRT_LINK}")
 
           COMMENT_ID=$(gh api "repos/${REPO}/issues/${PR_NUMBER}/comments" \
             --jq '.[] | select(.body | contains("<!-- ci-report -->")) | .id' | head -1)
