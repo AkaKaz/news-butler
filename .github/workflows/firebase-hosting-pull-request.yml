@@ -12,8 +12,11 @@ jobs:
   lint_and_check:
     runs-on: ubuntu-latest
     outputs:
-      tests_line: ${{ steps.format_lines.outputs.tests_line }}
-      cov_line: ${{ steps.format_lines.outputs.cov_line }}
+      tests_icon: ${{ steps.format_lines.outputs.tests_icon }}
+      tests_counts: ${{ steps.format_lines.outputs.tests_counts }}
+      cov_icon: ${{ steps.format_lines.outputs.cov_icon }}
+      cov_percent: ${{ steps.format_lines.outputs.cov_percent }}
+      cov_url: ${{ steps.format_lines.outputs.cov_url }}
     steps:
       - uses: actions/checkout@v4
 
@@ -148,14 +151,19 @@ jobs:
           [ "$PASSED" = "$TOTAL" ] && T_ICON="✅" || T_ICON="❌"
           [ "$LINES" != "?" ] && C_ICON="✅" || C_ICON="❌"
 
-          echo "tests_line=🧪 Unit Tests ${T_ICON} ${PASSED}/${TOTAL} — [レポート](${COV_URL})" >> $GITHUB_OUTPUT
-          echo "cov_line=📊 Coverage ${C_ICON} ${LINES}% — [詳細](${COV_URL})" >> $GITHUB_OUTPUT
+          echo "tests_icon=${T_ICON}" >> $GITHUB_OUTPUT
+          echo "tests_counts=${PASSED}/${TOTAL}" >> $GITHUB_OUTPUT
+          echo "cov_icon=${C_ICON}" >> $GITHUB_OUTPUT
+          echo "cov_percent=${LINES}" >> $GITHUB_OUTPUT
+          echo "cov_url=${COV_URL}" >> $GITHUB_OUTPUT
 
   visual_regression:
     runs-on: ubuntu-latest
     needs: lint_and_check
     outputs:
-      vrt_line: ${{ steps.format_vrt.outputs.vrt_line }}
+      vrt_icon: ${{ steps.format_vrt.outputs.vrt_icon }}
+      vrt_counts: ${{ steps.format_vrt.outputs.vrt_counts }}
+      vrt_url: ${{ steps.format_vrt.outputs.vrt_url }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -279,13 +287,9 @@ jobs:
             ICON="✅"
           fi
 
-          if [ -n "$REPORT_URL" ]; then
-            VRT_LINE="🖼️ VRT ${ICON} ${COUNTS} — [レポート](${REPORT_URL})"
-          else
-            VRT_LINE="🖼️ VRT ${ICON} ${COUNTS}"
-          fi
-
-          echo "vrt_line=${VRT_LINE}" >> $GITHUB_OUTPUT
+          echo "vrt_icon=${ICON}" >> $GITHUB_OUTPUT
+          echo "vrt_counts=${COUNTS}" >> $GITHUB_OUTPUT
+          echo "vrt_url=${REPORT_URL}" >> $GITHUB_OUTPUT
 
       - name: Upload VRT report artifact
         if: always()
@@ -338,14 +342,29 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
           REPO: ${{ github.repository }}
-          TESTS_LINE: ${{ needs.lint_and_check.outputs.tests_line }}
-          COV_LINE: ${{ needs.lint_and_check.outputs.cov_line }}
-          VRT_LINE: ${{ needs.visual_regression.outputs.vrt_line }}
+          TESTS_ICON: ${{ needs.lint_and_check.outputs.tests_icon }}
+          TESTS_COUNTS: ${{ needs.lint_and_check.outputs.tests_counts }}
+          COV_ICON: ${{ needs.lint_and_check.outputs.cov_icon }}
+          COV_PERCENT: ${{ needs.lint_and_check.outputs.cov_percent }}
+          COV_URL: ${{ needs.lint_and_check.outputs.cov_url }}
+          VRT_ICON: ${{ needs.visual_regression.outputs.vrt_icon }}
+          VRT_COUNTS: ${{ needs.visual_regression.outputs.vrt_counts }}
+          VRT_URL: ${{ needs.visual_regression.outputs.vrt_url }}
         run: |
+          TESTS_CELL="${TESTS_ICON} ${TESTS_COUNTS}"
+          COV_CELL="${COV_ICON} ${COV_PERCENT}%"
+          VRT_CELL="${VRT_ICON} ${VRT_COUNTS}"
+
+          [ -n "$COV_URL" ]  && TESTS_LINK="[レポート](${COV_URL})"  || TESTS_LINK="—"
+          [ -n "$COV_URL" ]  && COV_LINK="[詳細](${COV_URL})"        || COV_LINK="—"
+          [ -n "$VRT_URL" ]  && VRT_LINK="[レポート](${VRT_URL})"    || VRT_LINK="—"
+
           BODY="<!-- ci-report -->
-${TESTS_LINE}
-${COV_LINE}
-${VRT_LINE}"
+| | 結果 | レポート |
+|---|---|---|
+| 🧪 Unit Tests | ${TESTS_CELL} | ${TESTS_LINK} |
+| 📊 Coverage | ${COV_CELL} | ${COV_LINK} |
+| 🖼️ VRT | ${VRT_CELL} | ${VRT_LINK} |"
 
           COMMENT_ID=$(gh api "repos/${REPO}/issues/${PR_NUMBER}/comments" \
             --jq '.[] | select(.body | contains("<!-- ci-report -->")) | .id' | head -1)
