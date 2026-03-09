@@ -344,17 +344,20 @@ jobs:
           REPO: ${{ github.repository }}
           TESTS_ICON: ${{ needs.lint_and_check.outputs.tests_icon }}
           COV_ICON: ${{ needs.lint_and_check.outputs.cov_icon }}
+          COV_URL: ${{ needs.lint_and_check.outputs.cov_url }}
           VRT_ICON: ${{ needs.visual_regression.outputs.vrt_icon }}
+          VRT_URL: ${{ needs.visual_regression.outputs.vrt_url }}
         run: |
           label() { [ "$1" = "✅" ] && echo "✅ 成功" || echo "❌ 失敗"; }
-          FMT='<!-- ci-report -->\n| | 結果 |\n|---|---|\n'
-          FMT+='| 🧪 Unit Tests | %s |\n'
-          FMT+='| 📊 Coverage | %s |\n'
-          FMT+='| 🖼️ VRT | %s |'
+          link()  { [ -n "$1" ] && echo "[レポート]($1)" || echo "—"; }
+          FMT='<!-- ci-report -->\n| | 結果 | レポート |\n|---|---|---|\n'
+          FMT+='| 🧪 Unit Tests | %s | %s |\n'
+          FMT+='| 📊 Coverage | %s | %s |\n'
+          FMT+='| 🖼️ VRT | %s | %s |'
           BODY=$(printf "$FMT" \
-            "$(label "$TESTS_ICON")" \
-            "$(label "$COV_ICON")" \
-            "$(label "$VRT_ICON")")
+            "$(label "$TESTS_ICON")" "$(link "$COV_URL")" \
+            "$(label "$COV_ICON")"  "$(link "$COV_URL")" \
+            "$(label "$VRT_ICON")"  "$(link "$VRT_URL")")
 
           COMMENT_ID=$(gh api "repos/${REPO}/issues/${PR_NUMBER}/comments" \
             --jq '.[] | select(.body | contains("<!-- ci-report -->")) | .id' | head -1)
