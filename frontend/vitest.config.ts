@@ -15,5 +15,11 @@ export default defineConfig({
 		setupFiles: ['./vitest.setup.ts'],
 		include: ['src/**/*.test.ts'],
 		globals: true,
+		reporters: ['verbose', ['html', { outputFolder: 'html' }]],
+		coverage: {
+			provider: 'v8',
+			reporter: ['text', 'html'],
+			include: ['src/**'],
+		},
 	},
 });
