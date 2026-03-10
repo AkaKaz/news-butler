@@ -35,9 +35,9 @@ export interface Article {
   aiRelevanceScore: number | null;
 }
 
-// ─── Topic ───────────────────────────────────────────────────────────────────
+// ─── Butler (旧: Topic) ───────────────────────────────────────────────────────
 
-export interface Topic {
+export interface Butler {
   id?: string;
   name: string;
   description: string;
@@ -50,12 +50,12 @@ export interface Topic {
   updatedAt: Timestamp;
 }
 
-// ─── Digest ──────────────────────────────────────────────────────────────────
+// ─── Report (旧: Digest) ──────────────────────────────────────────────────────
 
-export interface Digest {
+export interface Report {
   id?: string;
-  topicId: string;
-  topicName: string;
+  topicId: string;   // Firestore フィールド名は互換性のため維持
+  topicName: string; // Firestore フィールド名は互換性のため維持
   content: string; // Markdown
   articleIds: string[];
   articleCount: number;
@@ -66,8 +66,8 @@ export interface Digest {
 
 // ─── API request / response ──────────────────────────────────────────────────
 
-export interface GenerateDigestRequest {
-  topicId: string;
+export interface GenerateReportRequest {
+  butlerId: string;
   from?: string; // ISO 8601
   to?: string; // ISO 8601
 }

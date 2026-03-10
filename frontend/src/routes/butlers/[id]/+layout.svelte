@@ -1,9 +1,9 @@
 <script lang="ts">
   import { page } from "$app/state";
+  import type { LayoutData } from "./$types";
 
-  let { children } = $props();
+  let { children, data }: { children: any; data: LayoutData } = $props();
 
-  // TODO: AI名はAPIから取得する
   const butlerId = $derived(page.params.id);
 
   const tabs = $derived([
@@ -28,7 +28,7 @@
           <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/>
         </svg>
       </a>
-      <h1 class="text-xl font-bold tracking-tight">AI名</h1>
+      <h1 class="text-xl font-bold tracking-tight">{data.butler.name}</h1>
     </div>
 
     <!-- Sub-navigation tabs -->
