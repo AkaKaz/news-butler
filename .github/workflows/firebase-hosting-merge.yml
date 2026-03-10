@@ -81,10 +81,10 @@ jobs:
       - name: Deploy Firestore Rules
         env:
           FIREBASE_SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_AKANMI_NEWS_BUTLER }}
+          GOOGLE_APPLICATION_CREDENTIALS: /tmp/firebase-sa.json
         run: |
-          echo "$FIREBASE_SA" > /tmp/sa.json
-          GOOGLE_APPLICATION_CREDENTIALS=/tmp/sa.json \
-            npx firebase-tools deploy --only firestore:rules \
+          echo "$FIREBASE_SA" > /tmp/firebase-sa.json
+          npx firebase-tools deploy --only firestore:rules \
             --project akanmi-news-butler --non-interactive
 
       - uses: FirebaseExtended/action-hosting-deploy@v0
