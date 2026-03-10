@@ -4,8 +4,7 @@ export interface Butler {
   id: string;
   name: string;
   description: string;
-  iconEmoji: string;   // デフォルト: "🤖"
-  iconColor: string;   // hex color, e.g. "#6366f1"
+  iconUrl: string | null;  // Firebase Storage URL, null = デフォルトアイコン
   keywords: string[];
   sourceIds: string[];
   scheduleEnabled: boolean;
@@ -61,21 +60,4 @@ export interface DigestConfig {
   lastRunAt: { seconds: number; nanoseconds: number } | null;
   createdAt: { seconds: number; nanoseconds: number };
   updatedAt: { seconds: number; nanoseconds: number };
-}
-
-// ─── Avatar constants ────────────────────────────────────────────────────────
-
-export const ICON_EMOJIS = [
-  "🤖", "🦊", "🐧", "🦁", "🐬", "🦅",
-  "🎯", "⚡", "🌟", "🔥", "🌊", "🎨",
-];
-
-export const ICON_COLORS = [
-  "#6366f1", "#8b5cf6", "#ec4899", "#f97316", "#eab308",
-  "#22c55e", "#06b6d4", "#3b82f6", "#14b8a6", "#f43f5e",
-  "#a855f7", "#84cc16",
-];
-
-export function randomIconColor(): string {
-  return ICON_COLORS[Math.floor(Math.random() * ICON_COLORS.length)];
 }

@@ -1,18 +1,17 @@
 <script lang="ts">
   import { page } from "$app/state";
-  import { goto } from "$app/navigation";
+  import { replaceState } from "$app/navigation";
   import {
     getSourcesByButler,
     getDigestConfigs,
     updateButler,
+    uploadButlerIcon,
   } from "$lib/firestore";
-  import { ICON_EMOJIS, ICON_COLORS } from "$lib/types";
   import type { Butler, Source, DigestConfig } from "$lib/types";
   import type { PageData } from "./$types";
 
   let { data }: { data: PageData } = $props();
 
-  // Butler reactive copy (for local edits)
   let butler = $state<Butler>({ ...data.butler });
 
   // Sub-data
@@ -20,22 +19,18 @@
   let digestConfigs = $state<DigestConfig[]>([]);
   let loadingData = $state(true);
 
-  // Inline edit state
-  let editingName = $state(false);
-  let editingDesc = $state(false);
+  // Edit modal state
+  let showEditModal = $derived(page.url.searchParams.has("edit"));
   let editName = $state("");
-  let editDesc = $state("");
+  let editDescription = $state("");
+  let editIconFile = $state<File | null>(null);
+  let editIconPreviewUrl = $state<string | null>(null);
   let saving = $state(false);
-
-  // Icon picker modal
-  let showIconPicker = $state(false);
-  let pickerEmoji = $state(butler.iconEmoji);
-  let pickerColor = $state(butler.iconColor);
+  let fileInputEl = $state<HTMLInputElement | null>(null);
 
   // Source overflow detection
-  let badgeContainerEl: HTMLDivElement | null = null;
+  let badgeContainerEl = $state<HTMLDivElement | null>(null);
   let hiddenSourceCount = $state(0);
-  let measuredSources = $state(false);
 
   async function loadData() {
     const butlerId = butler.id;
@@ -55,10 +50,20 @@
     loadData();
   });
 
+  // Sync edit form when modal opens
+  $effect(() => {
+    if (showEditModal) {
+      editName = butler.name;
+      editDescription = butler.description;
+      editIconFile = null;
+      if (editIconPreviewUrl) URL.revokeObjectURL(editIconPreviewUrl);
+      editIconPreviewUrl = null;
+    }
+  });
+
   // Measure source badge overflow after render
   $effect(() => {
     if (loadingData || !badgeContainerEl || sources.length === 0) return;
-    // Re-measure after DOM updates
     requestAnimationFrame(() => {
       if (!badgeContainerEl) return;
       const items = badgeContainerEl.querySelectorAll<HTMLElement>("[data-source-badge]");
@@ -76,77 +81,41 @@
         }
       });
       hiddenSourceCount = hidden;
-      measuredSources = true;
     });
   });
 
-  // ── Inline edit: Name ─────────────────────────────────────────────────────
-
-  function startEditName() {
-    editName = butler.name;
-    editingName = true;
+  function closeEdit() {
+    replaceState("", {});
   }
 
-  async function saveName() {
-    const trimmed = editName.trim();
-    if (!trimmed || trimmed === butler.name) { cancelEditName(); return; }
+  function onFileChange(e: Event) {
+    const input = e.currentTarget as HTMLInputElement;
+    const file = input.files?.[0] ?? null;
+    editIconFile = file;
+    if (editIconPreviewUrl) URL.revokeObjectURL(editIconPreviewUrl);
+    editIconPreviewUrl = file ? URL.createObjectURL(file) : null;
+  }
+
+  async function saveEdit() {
+    const trimmedName = editName.trim();
+    if (!trimmedName) return;
     saving = true;
     try {
-      await updateButler(butler.id, { name: trimmed });
-      butler = { ...butler, name: trimmed };
+      const updates: Partial<Butler> = {
+        name: trimmedName,
+        description: editDescription.trim(),
+      };
+      if (editIconFile) {
+        const url = await uploadButlerIcon(butler.id, editIconFile);
+        updates.iconUrl = url;
+      }
+      await updateButler(butler.id, updates);
+      butler = { ...butler, ...updates };
+      closeEdit();
     } finally {
       saving = false;
-      editingName = false;
     }
   }
-
-  function cancelEditName() {
-    editingName = false;
-  }
-
-  // ── Inline edit: Description ──────────────────────────────────────────────
-
-  function startEditDesc() {
-    editDesc = butler.description;
-    editingDesc = true;
-  }
-
-  async function saveDesc() {
-    const trimmed = editDesc.trim();
-    saving = true;
-    try {
-      await updateButler(butler.id, { description: trimmed });
-      butler = { ...butler, description: trimmed };
-    } finally {
-      saving = false;
-      editingDesc = false;
-    }
-  }
-
-  function cancelEditDesc() {
-    editingDesc = false;
-  }
-
-  // ── Icon picker ───────────────────────────────────────────────────────────
-
-  function openIconPicker() {
-    pickerEmoji = butler.iconEmoji;
-    pickerColor = butler.iconColor;
-    showIconPicker = true;
-  }
-
-  async function saveIcon() {
-    saving = true;
-    try {
-      await updateButler(butler.id, { iconEmoji: pickerEmoji, iconColor: pickerColor });
-      butler = { ...butler, iconEmoji: pickerEmoji, iconColor: pickerColor };
-    } finally {
-      saving = false;
-      showIconPicker = false;
-    }
-  }
-
-  // ── Cron label helper ─────────────────────────────────────────────────────
 
   function cronLabel(schedule: string | null): string {
     if (!schedule) return "手動のみ";
@@ -172,96 +141,35 @@
 <div class="pb-10">
   <!-- ── Avatar section ──────────────────────────────────────────────────── -->
   <div class="flex flex-col items-center gap-3 pt-8 pb-6 px-4">
-    <!-- Clickable avatar -->
-    <button
-      type="button"
-      class="relative group"
-      onclick={openIconPicker}
-      aria-label="アイコンを変更"
-    >
-      <div
-        class="w-24 h-24 rounded-full flex items-center justify-center text-5xl shadow-md transition-transform duration-150 group-hover:scale-105 group-active:scale-95"
-        style="background-color: {butler.iconColor}22; border: 3px solid {butler.iconColor}60;"
-      >
-        {butler.iconEmoji}
-      </div>
-      <!-- Edit overlay -->
-      <span class="absolute bottom-0 right-0 w-7 h-7 rounded-full bg-base-100 border border-base-200 shadow-sm flex items-center justify-center text-base-content/70 group-hover:text-primary transition-colors">
-        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/>
+    <!-- Avatar -->
+    {#if butler.iconUrl}
+      <img
+        src={butler.iconUrl}
+        alt={butler.name}
+        class="w-24 h-24 rounded-full object-cover shadow-md border-2 border-base-200"
+      />
+    {:else}
+      <div class="w-24 h-24 rounded-full bg-primary/10 flex items-center justify-center text-primary shadow-md">
+        <svg class="w-12 h-12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.5"/>
+          <circle cx="12" cy="2.5" r="0.5" fill="currentColor" stroke="none"/>
+          <rect x="4" y="5.5" width="16" height="11" rx="2"/>
+          <circle cx="9" cy="10.5" r="1.5" fill="currentColor" stroke="none"/>
+          <circle cx="15" cy="10.5" r="1.5" fill="currentColor" stroke="none"/>
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 14h6"/>
         </svg>
-      </span>
-    </button>
+      </div>
+    {/if}
 
-    <!-- Name with inline edit -->
-    <div class="flex items-center gap-2 w-full max-w-sm justify-center">
-      {#if editingName}
-        <input
-          type="text"
-          class="input input-bordered input-sm text-center font-bold text-lg flex-1"
-          bind:value={editName}
-          onkeydown={(e) => { if (e.key === 'Enter') saveName(); if (e.key === 'Escape') cancelEditName(); }}
-          autofocus
-        />
-        <button class="btn btn-primary btn-sm btn-circle" onclick={saveName} disabled={saving} aria-label="保存">
-          {#if saving}
-            <span class="loading loading-spinner loading-xs"></span>
-          {:else}
-            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
-            </svg>
-          {/if}
-        </button>
-        <button class="btn btn-ghost btn-sm btn-circle" onclick={cancelEditName} aria-label="キャンセル">
-          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
-          </svg>
-        </button>
-      {:else}
-        <h2 class="text-xl font-bold tracking-tight">{butler.name}</h2>
-        <button
-          class="btn btn-ghost btn-xs btn-circle text-base-content/40 hover:text-primary"
-          onclick={startEditName}
-          aria-label="名前を編集"
-        >
-          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/>
-          </svg>
-        </button>
-      {/if}
-    </div>
+    <!-- Name -->
+    <h2 class="text-xl font-bold tracking-tight text-center">{butler.name}</h2>
 
-    <!-- Description with inline edit -->
-    <div class="w-full max-w-sm">
-      {#if editingDesc}
-        <textarea
-          class="textarea textarea-bordered w-full text-sm resize-none text-center"
-          rows="2"
-          bind:value={editDesc}
-          onkeydown={(e) => { if (e.key === 'Escape') cancelEditDesc(); }}
-          autofocus
-        ></textarea>
-        <div class="flex gap-2 mt-1.5 justify-center">
-          <button class="btn btn-ghost btn-xs" onclick={cancelEditDesc}>キャンセル</button>
-          <button class="btn btn-primary btn-xs" onclick={saveDesc} disabled={saving}>
-            {#if saving}<span class="loading loading-spinner loading-xs"></span>{:else}保存{/if}
-          </button>
-        </div>
-      {:else}
-        <button
-          type="button"
-          class="group flex items-start justify-center gap-1.5 w-full text-sm text-base-content/60 hover:text-base-content transition-colors text-center"
-          onclick={startEditDesc}
-        >
-          <span class={butler.description ? "" : "italic"}>
-            {butler.description || "説明を追加..."}
-          </span>
-          <svg class="w-3.5 h-3.5 mt-0.5 shrink-0 opacity-40 group-hover:opacity-100 group-hover:text-primary transition-all" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/>
-          </svg>
-        </button>
-      {/if}
-    </div>
+    <!-- Description -->
+    {#if butler.description}
+      <p class="text-sm text-base-content/60 text-center max-w-sm">{butler.description}</p>
+    {:else}
+      <p class="text-sm text-base-content/30 italic text-center">説明なし</p>
+    {/if}
   </div>
 
   <!-- ── News Sources section ───────────────────────────────────────────── -->
@@ -396,84 +304,129 @@
   </div>
 </div>
 
-<!-- ── Icon picker modal ─────────────────────────────────────────────────── -->
-{#if showIconPicker}
+<!-- ── Edit modal ──────────────────────────────────────────────────────────── -->
+{#if showEditModal}
   <!-- Backdrop -->
   <div
     class="fixed inset-0 z-50 bg-black/40 backdrop-blur-[2px]"
     role="button"
     tabindex="-1"
     aria-label="閉じる"
-    onclick={() => (showIconPicker = false)}
-    onkeydown={(e) => e.key === 'Escape' && (showIconPicker = false)}
+    onclick={closeEdit}
+    onkeydown={(e) => e.key === 'Escape' && closeEdit()}
   ></div>
 
   <!-- Sheet / Dialog -->
   <div class="fixed z-50 bg-base-100 shadow-xl
     inset-x-0 bottom-0 rounded-t-3xl pt-5 pb-safe
-    lg:inset-auto lg:top-1/2 lg:left-1/2 lg:-translate-x-1/2 lg:-translate-y-1/2 lg:rounded-2xl lg:w-[400px]">
+    lg:inset-auto lg:top-1/2 lg:left-1/2 lg:-translate-x-1/2 lg:-translate-y-1/2 lg:rounded-2xl lg:w-[420px]">
 
     <!-- Pull handle (mobile only) -->
-    <div class="mx-auto w-10 h-1 rounded-full bg-base-300 mb-5 lg:hidden"></div>
+    <div class="mx-auto w-10 h-1 rounded-full bg-base-300 mb-4 lg:hidden"></div>
+
+    <!-- Header -->
+    <div class="flex items-center justify-between px-5 mb-5">
+      <h3 class="font-bold text-lg">AI執事を編集</h3>
+      <button
+        type="button"
+        class="btn btn-ghost btn-sm btn-circle"
+        onclick={closeEdit}
+        aria-label="閉じる"
+      >
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
 
     <div class="px-5 pb-6">
-      <h3 class="font-bold text-base mb-4 text-center">アイコンを変更</h3>
-
-      <!-- Preview -->
-      <div class="flex justify-center mb-5">
-        <div
-          class="w-20 h-20 rounded-full flex items-center justify-center text-4xl shadow-md"
-          style="background-color: {pickerColor}22; border: 3px solid {pickerColor}60;"
+      <!-- Avatar upload -->
+      <div class="flex flex-col items-center gap-3 mb-5">
+        <input
+          bind:this={fileInputEl}
+          type="file"
+          accept="image/*"
+          class="hidden"
+          onchange={onFileChange}
+        />
+        <button
+          type="button"
+          class="relative group"
+          onclick={() => fileInputEl?.click()}
+          aria-label="アイコン画像を変更"
         >
-          {pickerEmoji}
-        </div>
-      </div>
-
-      <!-- Emoji grid -->
-      <p class="text-xs text-base-content/50 text-center mb-2">アイコン</p>
-      <div class="grid grid-cols-6 gap-1.5 mb-4">
-        {#each ICON_EMOJIS as emoji}
-          <button
-            type="button"
-            class="w-10 h-10 rounded-xl text-xl flex items-center justify-center transition-all duration-100"
-            class:ring-2={pickerEmoji === emoji}
-            class:ring-primary={pickerEmoji === emoji}
-            class:bg-base-200={pickerEmoji === emoji}
-            onclick={() => (pickerEmoji = emoji)}
-          >
-            {emoji}
-          </button>
-        {/each}
-      </div>
-
-      <!-- Color grid -->
-      <p class="text-xs text-base-content/50 text-center mb-2">カラー</p>
-      <div class="grid grid-cols-6 gap-1.5 mb-5">
-        {#each ICON_COLORS as color}
-          <button
-            type="button"
-            class="w-8 h-8 rounded-full mx-auto transition-all duration-100 flex items-center justify-center"
-            style="background-color: {color};"
-            class:ring-2={pickerColor === color}
-            class:ring-offset-2={pickerColor === color}
-            onclick={() => (pickerColor = color)}
-          >
-            {#if pickerColor === color}
-              <svg class="w-4 h-4 text-white drop-shadow" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+          {#if editIconPreviewUrl}
+            <img
+              src={editIconPreviewUrl}
+              alt="プレビュー"
+              class="w-20 h-20 rounded-full object-cover shadow-md border-2 border-base-200 group-hover:opacity-80 transition-opacity"
+            />
+          {:else if butler.iconUrl}
+            <img
+              src={butler.iconUrl}
+              alt={butler.name}
+              class="w-20 h-20 rounded-full object-cover shadow-md border-2 border-base-200 group-hover:opacity-80 transition-opacity"
+            />
+          {:else}
+            <div class="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center text-primary shadow-md group-hover:bg-primary/20 transition-colors">
+              <svg class="w-9 h-9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.5"/>
+                <circle cx="12" cy="2.5" r="0.5" fill="currentColor" stroke="none"/>
+                <rect x="4" y="5.5" width="16" height="11" rx="2"/>
+                <circle cx="9" cy="10.5" r="1.5" fill="currentColor" stroke="none"/>
+                <circle cx="15" cy="10.5" r="1.5" fill="currentColor" stroke="none"/>
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9 14h6"/>
               </svg>
-            {/if}
-          </button>
-        {/each}
+            </div>
+          {/if}
+          <!-- Upload overlay -->
+          <span class="absolute bottom-0 right-0 w-7 h-7 rounded-full bg-base-100 border border-base-200 shadow-sm flex items-center justify-center text-base-content/70 group-hover:text-primary transition-colors">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/>
+            </svg>
+          </span>
+        </button>
+        <p class="text-xs text-base-content/40">タップして画像を変更</p>
       </div>
 
-      <!-- Actions -->
-      <div class="flex gap-2">
-        <button class="btn btn-ghost flex-1" onclick={() => (showIconPicker = false)}>キャンセル</button>
-        <button class="btn btn-primary flex-1" onclick={saveIcon} disabled={saving}>
-          {#if saving}<span class="loading loading-spinner loading-sm"></span>{:else}保存{/if}
+      <!-- Form fields -->
+      <form
+        onsubmit={(e) => { e.preventDefault(); saveEdit(); }}
+        class="flex flex-col gap-3"
+      >
+        <label class="form-control">
+          <div class="label pb-1"><span class="label-text text-sm font-medium">名前 <span class="text-error">*</span></span></div>
+          <input
+            type="text"
+            class="input input-bordered"
+            placeholder="例: テクノロジーニュース"
+            bind:value={editName}
+            required
+            autofocus
+          />
+        </label>
+        <label class="form-control">
+          <div class="label pb-1"><span class="label-text text-sm font-medium">説明</span></div>
+          <textarea
+            class="textarea textarea-bordered resize-none"
+            rows="2"
+            placeholder="このAI執事の役割や目的"
+            bind:value={editDescription}
+          ></textarea>
+        </label>
+
+        <button
+          type="submit"
+          class="btn btn-primary w-full mt-1"
+          disabled={saving || !editName.trim()}
+        >
+          {#if saving}
+            <span class="loading loading-spinner loading-sm"></span>
+          {:else}
+            保存
+          {/if}
         </button>
-      </div>
+      </form>
     </div>
   </div>
 {/if}

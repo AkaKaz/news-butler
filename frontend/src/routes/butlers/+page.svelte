@@ -1,6 +1,5 @@
 <script lang="ts">
-  import { getButlers, createButler as fsCreateButler } from "$lib/firestore";
-  import { ICON_EMOJIS, ICON_COLORS, randomIconColor } from "$lib/types";
+  import { getButlers, createButler as fsCreateButler, updateButler, uploadButlerIcon } from "$lib/firestore";
   import type { Butler } from "$lib/types";
 
   let butlers = $state<Butler[]>([]);
@@ -9,11 +8,12 @@
   let showCreateModal = $state(false);
   let creating = $state(false);
 
-  // New butler form state
+  // Form state
   let newName = $state("");
   let newDescription = $state("");
-  let newEmoji = $state("🤖");
-  let newColor = $state(randomIconColor());
+  let iconFile = $state<File | null>(null);
+  let iconPreviewUrl = $state<string | null>(null);
+  let fileInputEl = $state<HTMLInputElement | null>(null);
 
   async function load() {
     try {
@@ -28,13 +28,21 @@
   function openCreate() {
     newName = "";
     newDescription = "";
-    newEmoji = "🤖";
-    newColor = randomIconColor();
+    iconFile = null;
+    iconPreviewUrl = null;
     showCreateModal = true;
   }
 
   function closeCreate() {
     showCreateModal = false;
+  }
+
+  function onFileChange(e: Event) {
+    const input = e.currentTarget as HTMLInputElement;
+    const file = input.files?.[0] ?? null;
+    iconFile = file;
+    if (iconPreviewUrl) URL.revokeObjectURL(iconPreviewUrl);
+    iconPreviewUrl = file ? URL.createObjectURL(file) : null;
   }
 
   async function createButler() {
@@ -44,9 +52,13 @@
       const created = await fsCreateButler({
         name: newName.trim(),
         description: newDescription.trim(),
-        iconEmoji: newEmoji,
-        iconColor: newColor,
+        iconUrl: null,
       });
+      if (iconFile) {
+        const url = await uploadButlerIcon(created.id, iconFile);
+        await updateButler(created.id, { iconUrl: url });
+        created.iconUrl = url;
+      }
       butlers = [created, ...butlers];
       closeCreate();
     } catch (e) {
@@ -62,22 +74,13 @@
 </script>
 
 <div class="p-4 lg:p-6">
-  <div class="flex items-center justify-between mb-6">
+  <div class="mb-6">
     <h1 class="text-2xl font-bold tracking-tight">AI執事</h1>
-    <button
-      class="btn btn-primary btn-sm gap-1.5"
-      onclick={openCreate}
-    >
-      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
-      </svg>
-      新規作成
-    </button>
   </div>
 
   {#if loading}
     <div class="flex justify-center py-16">
-      <span class="loading loading-spinner loading-md text-primary loading-spinner"></span>
+      <span class="loading loading-spinner loading-md text-primary"></span>
     </div>
 
   {:else if error}
@@ -88,29 +91,45 @@
       <span>{error}</span>
     </div>
 
-  {:else if butlers.length === 0}
-    <div class="flex flex-col items-center justify-center py-24 gap-4 text-base-content/50">
-      <div class="w-20 h-20 rounded-full bg-base-200 flex items-center justify-center text-4xl">🤖</div>
-      <div class="text-center">
-        <p class="font-medium">AI執事がいません</p>
-        <p class="text-sm mt-1">「新規作成」ボタンから追加してください</p>
-      </div>
-    </div>
-
   {:else}
     <div class="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4">
+      <!-- 新規作成カード -->
+      <button
+        onclick={openCreate}
+        class="flex flex-col items-center gap-3 p-4 rounded-2xl border-2 border-dashed border-base-300 hover:border-primary/50 hover:bg-base-100 transition-all duration-150 cursor-pointer text-center text-base-content/40 hover:text-primary"
+      >
+        <div class="w-16 h-16 rounded-full bg-base-200 flex items-center justify-center">
+          <svg class="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
+          </svg>
+        </div>
+        <span class="font-semibold text-sm">新規作成</span>
+      </button>
+
       {#each butlers as butler (butler.id)}
         <a
           href="/butlers/{butler.id}"
           class="flex flex-col items-center gap-3 p-4 rounded-2xl bg-base-100 border border-base-200 hover:border-primary/30 hover:shadow-md transition-all duration-150 cursor-pointer text-center"
         >
           <!-- Circular avatar -->
-          <div
-            class="w-16 h-16 rounded-full flex items-center justify-center text-3xl shrink-0 shadow-sm"
-            style="background-color: {butler.iconColor}1a; border: 2.5px solid {butler.iconColor}40;"
-          >
-            <span style="filter: drop-shadow(0 1px 2px rgba(0,0,0,0.15));">{butler.iconEmoji}</span>
-          </div>
+          {#if butler.iconUrl}
+            <img
+              src={butler.iconUrl}
+              alt={butler.name}
+              class="w-16 h-16 rounded-full object-cover shadow-sm border border-base-200"
+            />
+          {:else}
+            <div class="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center text-primary shadow-sm">
+              <svg class="w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.5"/>
+                <circle cx="12" cy="2.5" r="0.5" fill="currentColor" stroke="none"/>
+                <rect x="4" y="5.5" width="16" height="11" rx="2"/>
+                <circle cx="9" cy="10.5" r="1.5" fill="currentColor" stroke="none"/>
+                <circle cx="15" cy="10.5" r="1.5" fill="currentColor" stroke="none"/>
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9 14h6"/>
+              </svg>
+            </div>
+          {/if}
 
           <!-- Name + badge -->
           <div class="flex flex-col items-center gap-1 min-w-0 w-full">
@@ -150,62 +169,65 @@
     lg:inset-auto lg:top-1/2 lg:left-1/2 lg:-translate-x-1/2 lg:-translate-y-1/2 lg:rounded-2xl lg:w-[420px]">
 
     <!-- Pull handle (mobile only) -->
-    <div class="mx-auto w-10 h-1 rounded-full bg-base-300 mb-5 lg:hidden"></div>
+    <div class="mx-auto w-10 h-1 rounded-full bg-base-300 mb-4 lg:hidden"></div>
+
+    <!-- Header -->
+    <div class="flex items-center justify-between px-5 mb-5">
+      <h3 class="font-bold text-lg">AI執事を作成</h3>
+      <button
+        type="button"
+        class="btn btn-ghost btn-sm btn-circle"
+        onclick={closeCreate}
+        aria-label="閉じる"
+      >
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
 
     <div class="px-5 pb-6">
-      <h3 class="font-bold text-lg mb-5">AI執事を作成</h3>
-
-      <!-- Avatar preview + picker -->
-      <div class="flex flex-col items-center gap-4 mb-5">
-        <!-- Preview -->
-        <div
-          class="w-20 h-20 rounded-full flex items-center justify-center text-4xl shadow-sm"
-          style="background-color: {newColor}1a; border: 3px solid {newColor}50;"
+      <!-- Avatar upload -->
+      <div class="flex flex-col items-center gap-3 mb-5">
+        <input
+          bind:this={fileInputEl}
+          type="file"
+          accept="image/*"
+          class="hidden"
+          onchange={onFileChange}
+        />
+        <button
+          type="button"
+          class="relative group"
+          onclick={() => fileInputEl?.click()}
+          aria-label="アイコン画像を選択"
         >
-          {newEmoji}
-        </div>
-
-        <!-- Emoji picker -->
-        <div>
-          <p class="text-xs text-base-content/50 text-center mb-2">アイコン</p>
-          <div class="grid grid-cols-6 gap-1.5">
-            {#each ICON_EMOJIS as emoji}
-              <button
-                type="button"
-                class="w-10 h-10 rounded-xl text-xl flex items-center justify-center transition-all duration-100"
-                class:ring-2={newEmoji === emoji}
-                class:ring-primary={newEmoji === emoji}
-                class:bg-base-200={newEmoji === emoji}
-                onclick={() => (newEmoji = emoji)}
-              >
-                {emoji}
-              </button>
-            {/each}
-          </div>
-        </div>
-
-        <!-- Color picker -->
-        <div>
-          <p class="text-xs text-base-content/50 text-center mb-2">カラー</p>
-          <div class="grid grid-cols-6 gap-1.5">
-            {#each ICON_COLORS as color}
-              <button
-                type="button"
-                class="w-8 h-8 rounded-full transition-all duration-100 flex items-center justify-center"
-                style="background-color: {color};"
-                class:ring-2={newColor === color}
-                class:ring-offset-2={newColor === color}
-                onclick={() => (newColor = color)}
-              >
-                {#if newColor === color}
-                  <svg class="w-4 h-4 text-white drop-shadow" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
-                  </svg>
-                {/if}
-              </button>
-            {/each}
-          </div>
-        </div>
+          {#if iconPreviewUrl}
+            <img
+              src={iconPreviewUrl}
+              alt="プレビュー"
+              class="w-20 h-20 rounded-full object-cover shadow-md border-2 border-base-200 group-hover:opacity-80 transition-opacity"
+            />
+          {:else}
+            <div class="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center text-primary shadow-md group-hover:bg-primary/20 transition-colors">
+              <svg class="w-9 h-9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.5"/>
+                <circle cx="12" cy="2.5" r="0.5" fill="currentColor" stroke="none"/>
+                <rect x="4" y="5.5" width="16" height="11" rx="2"/>
+                <circle cx="9" cy="10.5" r="1.5" fill="currentColor" stroke="none"/>
+                <circle cx="15" cy="10.5" r="1.5" fill="currentColor" stroke="none"/>
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9 14h6"/>
+              </svg>
+            </div>
+          {/if}
+          <!-- Upload overlay -->
+          <span class="absolute bottom-0 right-0 w-7 h-7 rounded-full bg-base-100 border border-base-200 shadow-sm flex items-center justify-center text-base-content/70 group-hover:text-primary transition-colors">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/>
+            </svg>
+          </span>
+        </button>
+        <p class="text-xs text-base-content/40">タップして画像を選択</p>
       </div>
 
       <!-- Form fields -->
@@ -234,24 +256,17 @@
           ></textarea>
         </label>
 
-        <div class="flex gap-2 mt-1">
-          <button
-            type="button"
-            class="btn btn-ghost flex-1"
-            onclick={closeCreate}
-          >キャンセル</button>
-          <button
-            type="submit"
-            class="btn btn-primary flex-1"
-            disabled={creating || !newName.trim()}
-          >
-            {#if creating}
-              <span class="loading loading-spinner loading-sm"></span>
-            {:else}
-              作成
-            {/if}
-          </button>
-        </div>
+        <button
+          type="submit"
+          class="btn btn-primary w-full mt-1"
+          disabled={creating || !newName.trim()}
+        >
+          {#if creating}
+            <span class="loading loading-spinner loading-sm"></span>
+          {:else}
+            作成
+          {/if}
+        </button>
       </form>
     </div>
   </div>

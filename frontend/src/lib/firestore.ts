@@ -17,7 +17,8 @@ import {
   serverTimestamp,
   Timestamp,
 } from "firebase/firestore";
-import { db } from "./firebase";
+import { ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
+import { db, storage } from "./firebase";
 import type { Butler, DigestConfig, Report, Source } from "./types";
 
 const VRT = import.meta.env.VITE_VRT_AUTH_BYPASS === "true";
@@ -30,8 +31,7 @@ const MOCK_BUTLERS: Butler[] = [
     id: "mock-1",
     name: "テクノロジーウォッチャー",
     description: "最新のテクノロジーニュースを監視します",
-    iconEmoji: "🤖",
-    iconColor: "#6366f1",
+    iconUrl: null,
     keywords: ["AI", "クラウド", "スタートアップ"],
     sourceIds: ["src-1", "src-2"],
     scheduleEnabled: true,
@@ -44,8 +44,7 @@ const MOCK_BUTLERS: Butler[] = [
     id: "mock-2",
     name: "ビジネスインサイト",
     description: "ビジネス・経済ニュースをまとめます",
-    iconEmoji: "💼",
-    iconColor: "#f59e0b",
+    iconUrl: null,
     keywords: ["経済", "M&A", "決算"],
     sourceIds: ["src-3"],
     scheduleEnabled: true,
@@ -58,8 +57,7 @@ const MOCK_BUTLERS: Butler[] = [
     id: "mock-3",
     name: "グローバルニュース",
     description: "海外メディアの主要ニュースを日本語でまとめます",
-    iconEmoji: "🌍",
-    iconColor: "#10b981",
+    iconUrl: null,
     keywords: ["国際", "政治", "環境", "社会"],
     sourceIds: ["src-1"],
     scheduleEnabled: false,
@@ -72,8 +70,7 @@ const MOCK_BUTLERS: Butler[] = [
     id: "mock-4",
     name: "スポーツハイライト",
     description: "",
-    iconEmoji: "⚽",
-    iconColor: "#ef4444",
+    iconUrl: null,
     keywords: [],
     sourceIds: [],
     scheduleEnabled: false,
@@ -235,7 +232,7 @@ export async function getButler(id: string): Promise<Butler | null> {
 }
 
 export async function createButler(
-  data: Pick<Butler, "name" | "description" | "iconEmoji" | "iconColor">
+  data: Pick<Butler, "name" | "description" | "iconUrl">
 ): Promise<Butler> {
   if (VRT) {
     const b: Butler = {
@@ -255,8 +252,7 @@ export async function createButler(
   const ref = await addDoc(collection(db, "topics"), {
     name: data.name,
     description: data.description ?? "",
-    iconEmoji: data.iconEmoji,
-    iconColor: data.iconColor,
+    iconUrl: data.iconUrl ?? null,
     keywords: [],
     sourceIds: [],
     scheduleEnabled: false,
@@ -267,6 +263,14 @@ export async function createButler(
   });
   const created = await getDoc(ref);
   return { id: created.id, ...created.data() } as Butler;
+}
+
+export async function uploadButlerIcon(butlerId: string, file: File): Promise<string> {
+  if (VRT) return "";
+  const ext = file.name.split(".").pop() ?? "jpg";
+  const r = storageRef(storage, `butler-icons/${butlerId}/${Date.now()}.${ext}`);
+  await uploadBytes(r, file);
+  return getDownloadURL(r);
 }
 
 export async function updateButler(
