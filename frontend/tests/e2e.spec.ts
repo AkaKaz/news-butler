@@ -48,7 +48,7 @@ test.describe("AI執事 新規作成", () => {
   test("名前が空のとき作成ボタンが無効", async ({page}) => {
     await page.goto("/butlers");
     await page.getByRole("button", {name: /新規作成/}).click();
-    const submitBtn = page.getByRole("button", {name: "作成"});
+    const submitBtn = page.getByRole("button", {name: "作成", exact: true});
     await expect(submitBtn).toBeDisabled();
   });
 
@@ -56,7 +56,7 @@ test.describe("AI執事 新規作成", () => {
     await page.goto("/butlers");
     await page.getByRole("button", {name: /新規作成/}).click();
     await page.getByPlaceholder("例: テクノロジーニュース").fill("新しい執事");
-    await page.getByRole("button", {name: "作成"}).click();
+    await page.getByRole("button", {name: "作成", exact: true}).click();
     await expect(
       page.getByRole("heading", {name: "AI執事を作成"})
     ).not.toBeVisible();
