@@ -39,7 +39,7 @@ test.describe("AI執事 新規作成", () => {
   test("キャンセルボタンでモーダルが閉じる", async ({page}) => {
     await page.goto("/butlers");
     await page.getByRole("button", {name: /新規作成/}).click();
-    await page.getByRole("button", {name: "キャンセル"}).click();
+    await page.getByRole("button", {name: "閉じる"}).click();
     await expect(
       page.getByRole("heading", {name: "AI執事を作成"})
     ).not.toBeVisible();

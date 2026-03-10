@@ -5,6 +5,7 @@ export interface Butler {
   name: string;
   description: string;
   iconUrl: string | null;  // Firebase Storage URL, null = デフォルトアイコン
+  iconColor: string;       // アイコン背景色 hex, e.g. "#6366f1"
   keywords: string[];
   sourceIds: string[];
   scheduleEnabled: boolean;
@@ -43,6 +44,18 @@ export interface Source {
   consecutiveErrors: number;
   createdAt: { seconds: number; nanoseconds: number };
   updatedAt: { seconds: number; nanoseconds: number };
+}
+
+// ─── Avatar constants ────────────────────────────────────────────────────────
+
+export const ICON_COLORS = [
+  "#6366f1", "#8b5cf6", "#ec4899", "#f97316", "#eab308",
+  "#22c55e", "#06b6d4", "#3b82f6", "#14b8a6", "#f43f5e",
+  "#a855f7", "#84cc16",
+];
+
+export function randomIconColor(): string {
+  return ICON_COLORS[Math.floor(Math.random() * ICON_COLORS.length)];
 }
 
 // ─── DigestConfig (= バックエンドの digest_configs コレクション) ─────────────

@@ -32,6 +32,7 @@ const MOCK_BUTLERS: Butler[] = [
     name: "テクノロジーウォッチャー",
     description: "最新のテクノロジーニュースを監視します",
     iconUrl: null,
+    iconColor: "#6366f1",
     keywords: ["AI", "クラウド", "スタートアップ"],
     sourceIds: ["src-1", "src-2"],
     scheduleEnabled: true,
@@ -45,6 +46,7 @@ const MOCK_BUTLERS: Butler[] = [
     name: "ビジネスインサイト",
     description: "ビジネス・経済ニュースをまとめます",
     iconUrl: null,
+    iconColor: "#f97316",
     keywords: ["経済", "M&A", "決算"],
     sourceIds: ["src-3"],
     scheduleEnabled: true,
@@ -58,6 +60,7 @@ const MOCK_BUTLERS: Butler[] = [
     name: "グローバルニュース",
     description: "海外メディアの主要ニュースを日本語でまとめます",
     iconUrl: null,
+    iconColor: "#22c55e",
     keywords: ["国際", "政治", "環境", "社会"],
     sourceIds: ["src-1"],
     scheduleEnabled: false,
@@ -71,6 +74,7 @@ const MOCK_BUTLERS: Butler[] = [
     name: "スポーツハイライト",
     description: "",
     iconUrl: null,
+    iconColor: "#ec4899",
     keywords: [],
     sourceIds: [],
     scheduleEnabled: false,
@@ -232,7 +236,7 @@ export async function getButler(id: string): Promise<Butler | null> {
 }
 
 export async function createButler(
-  data: Pick<Butler, "name" | "description" | "iconUrl">
+  data: Pick<Butler, "name" | "description" | "iconUrl" | "iconColor">
 ): Promise<Butler> {
   if (VRT) {
     const b: Butler = {
@@ -253,6 +257,7 @@ export async function createButler(
     name: data.name,
     description: data.description ?? "",
     iconUrl: data.iconUrl ?? null,
+    iconColor: data.iconColor,
     keywords: [],
     sourceIds: [],
     scheduleEnabled: false,

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { getButlers, createButler as fsCreateButler, updateButler, uploadButlerIcon } from "$lib/firestore";
+  import { ICON_COLORS, randomIconColor } from "$lib/types";
   import type { Butler } from "$lib/types";
 
   let butlers = $state<Butler[]>([]);
@@ -11,6 +12,7 @@
   // Form state
   let newName = $state("");
   let newDescription = $state("");
+  let newColor = $state(randomIconColor());
   let iconFile = $state<File | null>(null);
   let iconPreviewUrl = $state<string | null>(null);
   let fileInputEl = $state<HTMLInputElement | null>(null);
@@ -28,7 +30,9 @@
   function openCreate() {
     newName = "";
     newDescription = "";
+    newColor = randomIconColor();
     iconFile = null;
+    if (iconPreviewUrl) URL.revokeObjectURL(iconPreviewUrl);
     iconPreviewUrl = null;
     showCreateModal = true;
   }
@@ -53,6 +57,7 @@
         name: newName.trim(),
         description: newDescription.trim(),
         iconUrl: null,
+        iconColor: newColor,
       });
       if (iconFile) {
         const url = await uploadButlerIcon(created.id, iconFile);
@@ -93,19 +98,6 @@
 
   {:else}
     <div class="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4">
-      <!-- 新規作成カード -->
-      <button
-        onclick={openCreate}
-        class="flex flex-col items-center gap-3 p-4 rounded-2xl border-2 border-dashed border-base-300 hover:border-primary/50 hover:bg-base-100 transition-all duration-150 cursor-pointer text-center text-base-content/40 hover:text-primary"
-      >
-        <div class="w-16 h-16 rounded-full bg-base-200 flex items-center justify-center">
-          <svg class="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
-          </svg>
-        </div>
-        <span class="font-semibold text-sm">新規作成</span>
-      </button>
-
       {#each butlers as butler (butler.id)}
         <a
           href="/butlers/{butler.id}"
@@ -119,8 +111,11 @@
               class="w-16 h-16 rounded-full object-cover shadow-sm border border-base-200"
             />
           {:else}
-            <div class="w-16 h-16 rounded-full bg-primary/10 flex items-center justify-center text-primary shadow-sm">
-              <svg class="w-8 h-8" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <div
+              class="w-16 h-16 rounded-full flex items-center justify-center shadow-sm"
+              style="background-color: {butler.iconColor}22; border: 2px solid {butler.iconColor}50;"
+            >
+              <svg class="w-8 h-8" style="color: {butler.iconColor};" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.5"/>
                 <circle cx="12" cy="2.5" r="0.5" fill="currentColor" stroke="none"/>
                 <rect x="4" y="5.5" width="16" height="11" rx="2"/>
@@ -147,6 +142,19 @@
           </div>
         </a>
       {/each}
+
+      <!-- 新規作成カード（末尾） -->
+      <button
+        onclick={openCreate}
+        class="flex flex-col items-center gap-3 p-4 rounded-2xl border-2 border-dashed border-base-300 hover:border-primary/50 hover:bg-base-100 transition-all duration-150 cursor-pointer text-center text-base-content/40 hover:text-primary"
+      >
+        <div class="w-16 h-16 rounded-full bg-base-200 flex items-center justify-center">
+          <svg class="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
+          </svg>
+        </div>
+        <span class="font-semibold text-sm">新規作成</span>
+      </button>
     </div>
   {/if}
 </div>
@@ -187,7 +195,7 @@
     </div>
 
     <div class="px-5 pb-6">
-      <!-- Avatar upload -->
+      <!-- Avatar upload + color -->
       <div class="flex flex-col items-center gap-3 mb-5">
         <input
           bind:this={fileInputEl}
@@ -209,8 +217,11 @@
               class="w-20 h-20 rounded-full object-cover shadow-md border-2 border-base-200 group-hover:opacity-80 transition-opacity"
             />
           {:else}
-            <div class="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center text-primary shadow-md group-hover:bg-primary/20 transition-colors">
-              <svg class="w-9 h-9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <div
+              class="w-20 h-20 rounded-full flex items-center justify-center shadow-md group-hover:opacity-80 transition-opacity"
+              style="background-color: {newColor}22; border: 2.5px solid {newColor}50;"
+            >
+              <svg class="w-9 h-9" style="color: {newColor};" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.5"/>
                 <circle cx="12" cy="2.5" r="0.5" fill="currentColor" stroke="none"/>
                 <rect x="4" y="5.5" width="16" height="11" rx="2"/>
@@ -228,6 +239,31 @@
           </span>
         </button>
         <p class="text-xs text-base-content/40">タップして画像を選択</p>
+
+        <!-- Color picker -->
+        <div class="w-full">
+          <p class="text-xs text-base-content/50 text-center mb-2">背景カラー</p>
+          <div class="flex flex-wrap justify-center gap-2">
+            {#each ICON_COLORS as color}
+              <button
+                type="button"
+                class="w-7 h-7 rounded-full transition-all duration-100 flex items-center justify-center shrink-0"
+                style="background-color: {color};"
+                class:ring-2={newColor === color}
+                class:ring-offset-2={newColor === color}
+                class:ring-base-content={newColor === color}
+                onclick={() => (newColor = color)}
+                aria-label="カラー {color}"
+              >
+                {#if newColor === color}
+                  <svg class="w-3.5 h-3.5 text-white drop-shadow" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+                  </svg>
+                {/if}
+              </button>
+            {/each}
+          </div>
+        </div>
       </div>
 
       <!-- Form fields -->
@@ -243,7 +279,6 @@
             placeholder="例: テクノロジーニュース"
             bind:value={newName}
             required
-            autofocus
           />
         </label>
         <label class="form-control">

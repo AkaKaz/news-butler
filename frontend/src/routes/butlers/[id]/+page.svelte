@@ -7,6 +7,7 @@
     updateButler,
     uploadButlerIcon,
   } from "$lib/firestore";
+  import { ICON_COLORS } from "$lib/types";
   import type { Butler, Source, DigestConfig } from "$lib/types";
   import type { PageData } from "./$types";
 
@@ -23,6 +24,7 @@
   let showEditModal = $derived(page.url.searchParams.has("edit"));
   let editName = $state("");
   let editDescription = $state("");
+  let editColor = $state("");
   let editIconFile = $state<File | null>(null);
   let editIconPreviewUrl = $state<string | null>(null);
   let saving = $state(false);
@@ -55,6 +57,7 @@
     if (showEditModal) {
       editName = butler.name;
       editDescription = butler.description;
+      editColor = butler.iconColor;
       editIconFile = null;
       if (editIconPreviewUrl) URL.revokeObjectURL(editIconPreviewUrl);
       editIconPreviewUrl = null;
@@ -104,6 +107,7 @@
       const updates: Partial<Butler> = {
         name: trimmedName,
         description: editDescription.trim(),
+        iconColor: editColor,
       };
       if (editIconFile) {
         const url = await uploadButlerIcon(butler.id, editIconFile);
@@ -149,8 +153,11 @@
         class="w-24 h-24 rounded-full object-cover shadow-md border-2 border-base-200"
       />
     {:else}
-      <div class="w-24 h-24 rounded-full bg-primary/10 flex items-center justify-center text-primary shadow-md">
-        <svg class="w-12 h-12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
+      <div
+        class="w-24 h-24 rounded-full flex items-center justify-center shadow-md"
+        style="background-color: {butler.iconColor}22; border: 3px solid {butler.iconColor}50;"
+      >
+        <svg class="w-12 h-12" style="color: {butler.iconColor};" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6">
           <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.5"/>
           <circle cx="12" cy="2.5" r="0.5" fill="currentColor" stroke="none"/>
           <rect x="4" y="5.5" width="16" height="11" rx="2"/>
@@ -368,8 +375,11 @@
               class="w-20 h-20 rounded-full object-cover shadow-md border-2 border-base-200 group-hover:opacity-80 transition-opacity"
             />
           {:else}
-            <div class="w-20 h-20 rounded-full bg-primary/10 flex items-center justify-center text-primary shadow-md group-hover:bg-primary/20 transition-colors">
-              <svg class="w-9 h-9" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+            <div
+              class="w-20 h-20 rounded-full flex items-center justify-center shadow-md group-hover:opacity-80 transition-opacity"
+              style="background-color: {editColor}22; border: 2.5px solid {editColor}50;"
+            >
+              <svg class="w-9 h-9" style="color: {editColor};" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.5"/>
                 <circle cx="12" cy="2.5" r="0.5" fill="currentColor" stroke="none"/>
                 <rect x="4" y="5.5" width="16" height="11" rx="2"/>
@@ -387,6 +397,31 @@
           </span>
         </button>
         <p class="text-xs text-base-content/40">タップして画像を変更</p>
+
+        <!-- Color picker -->
+        <div class="w-full">
+          <p class="text-xs text-base-content/50 text-center mb-2">背景カラー</p>
+          <div class="flex flex-wrap justify-center gap-2">
+            {#each ICON_COLORS as color}
+              <button
+                type="button"
+                class="w-7 h-7 rounded-full transition-all duration-100 flex items-center justify-center shrink-0"
+                style="background-color: {color};"
+                class:ring-2={editColor === color}
+                class:ring-offset-2={editColor === color}
+                class:ring-base-content={editColor === color}
+                onclick={() => (editColor = color)}
+                aria-label="カラー {color}"
+              >
+                {#if editColor === color}
+                  <svg class="w-3.5 h-3.5 text-white drop-shadow" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+                  </svg>
+                {/if}
+              </button>
+            {/each}
+          </div>
+        </div>
       </div>
 
       <!-- Form fields -->
