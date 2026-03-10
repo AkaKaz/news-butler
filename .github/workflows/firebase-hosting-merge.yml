@@ -84,6 +84,7 @@ jobs:
           GOOGLE_APPLICATION_CREDENTIALS: /tmp/firebase-sa.json
         run: |
           echo "$FIREBASE_SA" > /tmp/firebase-sa.json
+          echo "Using SA: $(python3 -c "import json; d=json.load(open('/tmp/firebase-sa.json')); print(d['client_email'])")"
           npx firebase-tools deploy --only firestore:rules \
             --project akanmi-news-butler --non-interactive
 
