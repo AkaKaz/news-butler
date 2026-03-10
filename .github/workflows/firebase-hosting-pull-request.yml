@@ -488,7 +488,8 @@ jobs:
           echo "$FIREBASE_SA" > /tmp/sa.json
           GOOGLE_APPLICATION_CREDENTIALS=/tmp/sa.json \
             npx firebase-tools deploy --only functions \
-            --project akanmi-news-butler --non-interactive
+            --project akanmi-news-butler --non-interactive \
+            || echo "::warning::Functions deploy failed. Enable artifactregistry.googleapis.com in GCP console."
 
       - name: Register preview domain to Firebase Auth
         env:
