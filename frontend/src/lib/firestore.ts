@@ -18,7 +18,7 @@ import {
   Timestamp,
 } from "firebase/firestore";
 import { db } from "./firebase";
-import type { Butler, Report, Source } from "./types";
+import type { Butler, DigestConfig, Report, Source } from "./types";
 
 const VRT = import.meta.env.VITE_VRT_AUTH_BYPASS === "true";
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "";
@@ -235,7 +235,7 @@ export async function getButler(id: string): Promise<Butler | null> {
 }
 
 export async function createButler(
-  data: Pick<Butler, "name" | "description">
+  data: Pick<Butler, "name" | "description" | "iconEmoji" | "iconColor">
 ): Promise<Butler> {
   if (VRT) {
     const b: Butler = {
@@ -255,6 +255,8 @@ export async function createButler(
   const ref = await addDoc(collection(db, "topics"), {
     name: data.name,
     description: data.description ?? "",
+    iconEmoji: data.iconEmoji,
+    iconColor: data.iconColor,
     keywords: [],
     sourceIds: [],
     scheduleEnabled: false,
@@ -394,4 +396,34 @@ export async function generateReport(
     throw new Error(`${res.status} ${text}`);
   }
   return res.json() as Promise<Report>;
+}
+
+// ── Sources (Butler-scoped) ───────────────────────────────────────────────────
+
+export async function getSourcesByButler(butlerId: string): Promise<Source[]> {
+  if (VRT) return MOCK_SOURCES.filter((s) => s.topicId === butlerId);
+  const snap = await getDocs(
+    query(
+      collection(db, "sources"),
+      where("topicId", "==", butlerId),
+      orderBy("createdAt", "desc")
+    )
+  );
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as Source));
+}
+
+// ── DigestConfigs ─────────────────────────────────────────────────────────────
+
+const MOCK_DIGEST_CONFIGS: DigestConfig[] = [];
+
+export async function getDigestConfigs(butlerId: string): Promise<DigestConfig[]> {
+  if (VRT) return MOCK_DIGEST_CONFIGS.filter((c) => c.topicId === butlerId);
+  const snap = await getDocs(
+    query(
+      collection(db, "digest_configs"),
+      where("topicId", "==", butlerId),
+      orderBy("createdAt", "desc")
+    )
+  );
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as DigestConfig));
 }
