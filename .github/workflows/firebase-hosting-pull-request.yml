@@ -297,7 +297,7 @@ jobs:
         run: cd frontend && npm ci
 
       - name: Install Playwright browsers
-        run: cd frontend && npx playwright install chromium --with-deps
+        run: cd frontend && npx playwright install chromium webkit --with-deps
 
       - name: Build frontend
         run: cd frontend && npm run build
