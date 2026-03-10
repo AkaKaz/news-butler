@@ -54,7 +54,7 @@ export interface Butler {
 
 export interface Report {
   id?: string;
-  topicId: string;   // Firestore フィールド名は互換性のため維持
+  topicId: string; // Firestore フィールド名は互換性のため維持
   topicName: string; // Firestore フィールド名は互換性のため維持
   content: string; // Markdown
   articleIds: string[];

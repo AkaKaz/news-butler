@@ -7,8 +7,8 @@ import {Report, GenerateReportRequest, Butler, Article} from "../types";
 // eslint-disable-next-line new-cap
 export const reportsRouter = Router();
 
-const COL_REPORTS = "digests";  // Firestoreコレクション名は互換性のため維持
-const COL_BUTLERS = "topics";   // Firestoreコレクション名は互換性のため維持
+const COL_REPORTS = "digests"; // Firestoreコレクション名は互換性のため維持
+const COL_BUTLERS = "topics"; // Firestoreコレクション名は互換性のため維持
 const COL_ARTICLES = "articles";
 
 /** レポート一覧（クエリ: butlerId） */
