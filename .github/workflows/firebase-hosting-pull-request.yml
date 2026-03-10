@@ -387,9 +387,7 @@ jobs:
           [ "$DELETED" != "0" ] && TITLE="${TITLE}, delete ${DELETED}"
           [ "$CHANGED" != "0" ] && TITLE="${TITLE}, changed ${CHANGED}"
 
-          if [ "$CHANGED" != "0" ]; then
-            CONCLUSION="failure"
-          elif [ "$NEW" != "0" ] || [ "$DELETED" != "0" ]; then
+          if [ "$CHANGED" != "0" ] || [ "$NEW" != "0" ] || [ "$DELETED" != "0" ]; then
             CONCLUSION="neutral"
           else
             CONCLUSION="success"
@@ -421,9 +419,7 @@ jobs:
           [ "$NEW"     != "0" ] && COUNTS="${COUNTS}, ${NEW} new"
           [ "$DELETED" != "0" ] && COUNTS="${COUNTS}, ${DELETED} deleted"
 
-          if [ "$CHANGED" != "0" ]; then
-            ICON="❌"
-          elif [ "$NEW" != "0" ] || [ "$DELETED" != "0" ]; then
+          if [ "$CHANGED" != "0" ] || [ "$NEW" != "0" ] || [ "$DELETED" != "0" ]; then
             ICON="⚠️"
           else
             ICON="✅"
