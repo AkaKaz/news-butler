@@ -31,7 +31,7 @@ export default defineConfig({
     },
     {
       name: "mobile",
-      use: {...devices["Pixel 5"]},
+      use: {...devices["iPhone 15"]},
     },
   ],
   webServer: {
