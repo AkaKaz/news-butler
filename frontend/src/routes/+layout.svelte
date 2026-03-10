@@ -133,9 +133,14 @@
         <li>
           <a href="/butlers" class:active={isActive("/butlers")} class="nav-link">
             <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.5"/>
+              <circle cx="12" cy="2.5" r="0.5" fill="currentColor" stroke="none"/>
+              <rect x="4" y="5.5" width="16" height="11" rx="2"/>
+              <circle cx="9" cy="10.5" r="1.5" fill="currentColor" stroke="none"/>
+              <circle cx="15" cy="10.5" r="1.5" fill="currentColor" stroke="none"/>
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 14h6"/>
             </svg>
-            AI
+            AI執事
           </a>
         </li>
       </ul>
@@ -167,7 +172,7 @@
     <nav class="btm-tabs lg:hidden fixed bottom-0 inset-x-0 flex border-t border-base-200 bg-base-100/95 backdrop-blur-sm safe-bottom">
       {#each [
         { path: "/reports", label: "新着" },
-        { path: "/butlers", label: "AI" },
+        { path: "/butlers", label: "AI執事" },
       ] as tab}
         <button
           class="tab-btn flex-1 flex flex-col items-center justify-center py-2 gap-0.5 transition-colors duration-150"
@@ -180,7 +185,12 @@
             </svg>
           {:else}
             <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.8">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.5"/>
+              <circle cx="12" cy="2.5" r="0.5" fill="currentColor" stroke="none"/>
+              <rect x="4" y="5.5" width="16" height="11" rx="2"/>
+              <circle cx="9" cy="10.5" r="1.5" fill="currentColor" stroke="none"/>
+              <circle cx="15" cy="10.5" r="1.5" fill="currentColor" stroke="none"/>
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 14h6"/>
             </svg>
           {/if}
           <span class="text-[10px] font-medium leading-none">{tab.label}</span>

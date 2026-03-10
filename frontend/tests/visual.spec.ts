@@ -7,10 +7,17 @@ test.beforeAll(() => {
   fs.mkdirSync(snapshotDir, {recursive: true});
 });
 
-test("top page screenshot", async ({page}) => {
-  await page.goto("/");
-  await page.screenshot({
-    path: `${snapshotDir}/top-page.png`,
-    fullPage: true,
+const pages = [
+  {name: "reports", path: "/reports"},
+  {name: "butlers", path: "/butlers"},
+];
+
+for (const {name, path} of pages) {
+  test(`${name} screenshot`, async ({page}) => {
+    await page.goto(path);
+    await page.screenshot({
+      path: `${snapshotDir}/${name}.png`,
+      fullPage: true,
+    });
   });
-});
+}
