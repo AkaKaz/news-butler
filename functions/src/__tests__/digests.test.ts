@@ -35,7 +35,7 @@ jest.mock("firebase-admin/firestore", () => ({
   },
 }));
 
-import {digestsRouter} from "../api/digests";
+import {reportsRouter} from "../api/reports";
 import {generateDigest as aiGenerateDigest}
   from "../services/vertexAiService";
 
@@ -45,7 +45,7 @@ app.use((req, _res, next) => {
   req.uid = "user1";
   next();
 });
-app.use("/digests", digestsRouter);
+app.use("/reports", reportsRouter);
 
 /**
  * Firestore クエリチェーンのモックを設定する。
@@ -68,31 +68,31 @@ beforeEach(() => {
   jest.clearAllMocks();
 });
 
-// ─── GET /digests ────────────────────────────────────────────────────────────
+// ─── GET /reports ────────────────────────────────────────────────────────────
 
-describe("GET /digests", () => {
-  it("ダイジェスト一覧を返す", async () => {
+describe("GET /reports", () => {
+  it("レポート一覧を返す", async () => {
     setupCollectionMock([
       {id: "d1", data: () => ({topicName: "AI", content: "まとめ"})},
     ]);
 
-    const res = await request(app).get("/digests");
+    const res = await request(app).get("/reports");
     expect(res.status).toBe(200);
     expect(res.body[0].id).toBe("d1");
   });
 });
 
-// ─── GET /digests/:id ────────────────────────────────────────────────────────
+// ─── GET /reports/:id ────────────────────────────────────────────────────────
 
-describe("GET /digests/:id", () => {
-  it("ダイジェスト詳細を返す", async () => {
+describe("GET /reports/:id", () => {
+  it("レポート詳細を返す", async () => {
     mockDocGet.mockResolvedValue({
       exists: true,
       id: "d1",
       data: () => ({topicName: "AI", content: "まとめ"}),
     });
 
-    const res = await request(app).get("/digests/d1");
+    const res = await request(app).get("/reports/d1");
     expect(res.status).toBe(200);
     expect(res.body.topicName).toBe("AI");
   });
@@ -100,25 +100,25 @@ describe("GET /digests/:id", () => {
   it("存在しない場合 404 を返す", async () => {
     mockDocGet.mockResolvedValue({exists: false});
 
-    const res = await request(app).get("/digests/unknown");
+    const res = await request(app).get("/reports/unknown");
     expect(res.status).toBe(404);
   });
 });
 
-// ─── POST /digests/generate ──────────────────────────────────────────────────
+// ─── POST /reports/generate ──────────────────────────────────────────────────
 
-describe("POST /digests/generate", () => {
-  it("topicId がない場合 400 を返す", async () => {
-    const res = await request(app).post("/digests/generate").send({});
+describe("POST /reports/generate", () => {
+  it("butlerId がない場合 400 を返す", async () => {
+    const res = await request(app).post("/reports/generate").send({});
     expect(res.status).toBe(400);
   });
 
-  it("トピックが存在しない場合 404 を返す", async () => {
+  it("AI執事が存在しない場合 404 を返す", async () => {
     mockDocGet.mockResolvedValue({exists: false});
 
     const res = await request(app)
-      .post("/digests/generate")
-      .send({topicId: "t1"});
+      .post("/reports/generate")
+      .send({butlerId: "t1"});
     expect(res.status).toBe(404);
   });
 
@@ -145,12 +145,12 @@ describe("POST /digests/generate", () => {
     });
 
     const res = await request(app)
-      .post("/digests/generate")
-      .send({topicId: "t1"});
+      .post("/reports/generate")
+      .send({butlerId: "t1"});
     expect(res.status).toBe(422);
   });
 
-  it("正常にダイジェストを生成して 201 を返す", async () => {
+  it("正常にレポートを生成して 201 を返す", async () => {
     const mockArticle = {
       id: "a1",
       data: () => ({
@@ -184,14 +184,14 @@ describe("POST /digests/generate", () => {
         orderBy: mockOrderBy,
       };
     });
-    mockAdd.mockResolvedValue({id: "new-digest-id"});
+    mockAdd.mockResolvedValue({id: "new-report-id"});
 
     const res = await request(app)
-      .post("/digests/generate")
-      .send({topicId: "t1"});
+      .post("/reports/generate")
+      .send({butlerId: "t1"});
 
     expect(res.status).toBe(201);
-    expect(res.body.id).toBe("new-digest-id");
+    expect(res.body.id).toBe("new-report-id");
     expect(res.body.content).toBe("# ダイジェスト\n本日のまとめ");
     expect(aiGenerateDigest).toHaveBeenCalled();
   });
