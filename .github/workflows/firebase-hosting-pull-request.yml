@@ -307,6 +307,7 @@ jobs:
           VITE_FIREBASE_PROJECT_ID:   dummy
           VITE_FIREBASE_APP_ID:       dummy
           VITE_API_BASE_URL:          http://localhost:3000
+          VITE_VRT_AUTH_BYPASS:       true
 
       - name: Run Playwright (capture screenshots)
         run: cd frontend && npm run test:visual
@@ -531,7 +532,7 @@ jobs:
           VRT_ICON:    ${{ needs.visual_regression.outputs.vrt_icon }}
           VRT_URL:     ${{ needs.visual_regression.outputs.vrt_url }}
         run: |
-          label() { [ "$1" = "✅" ] && echo "✅ 成功" || echo "❌ 失敗"; }
+          label() { if [ "$1" = "✅" ]; then echo "✅ 成功"; elif [ "$1" = "⚠️" ]; then echo "⚠️ 新規"; else echo "❌ 失敗"; fi; }
           link()  { [ -n "$1" ] && echo "[レポート]($1)" || echo "—"; }
           FMT='<!-- ci-report -->\n| | 結果 | レポート |\n|---|---|---|\n'
           FMT+='| ⚙️ Functions UT       | %s | %s |\n'
