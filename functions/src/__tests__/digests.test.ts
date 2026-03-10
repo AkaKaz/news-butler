@@ -2,8 +2,6 @@ import express from "express";
 import request from "supertest";
 
 const mockAdd = jest.fn();
-const mockOrderBy = jest.fn();
-const mockWhere = jest.fn();
 const mockDocGet = jest.fn();
 
 jest.mock("../firebase", () => ({
@@ -11,7 +9,6 @@ jest.mock("../firebase", () => ({
     collection: jest.fn((col: string) => {
       if (col === "digests") {
         return {
-          orderBy: mockOrderBy,
           doc: jest.fn(() => ({get: mockDocGet})),
           add: mockAdd,
         };
@@ -23,7 +20,9 @@ jest.mock("../firebase", () => ({
 }));
 
 jest.mock("../services/vertexAiService", () => ({
-  generateDigest: jest.fn().mockResolvedValue("# ダイジェスト\n本日のまとめ"),
+  generateDigest: jest.fn().mockResolvedValue(
+    "# ダイジェスト\n本日のまとめ"
+  ),
 }));
 
 jest.mock("firebase-admin/firestore", () => ({
@@ -35,7 +34,7 @@ jest.mock("firebase-admin/firestore", () => ({
   },
 }));
 
-import {digestsRouter} from "../api/digests";
+import {reportsRouter} from "../api/reports";
 import {generateDigest as aiGenerateDigest}
   from "../services/vertexAiService";
 
@@ -45,80 +44,26 @@ app.use((req, _res, next) => {
   req.uid = "user1";
   next();
 });
-app.use("/digests", digestsRouter);
-
-/**
- * Firestore クエリチェーンのモックを設定する。
- * @param {object[]} docs モックで返すドキュメント配列
- * @return {object} チェーンオブジェクト
- */
-function setupCollectionMock(docs: object[]) {
-  const chain = {
-    where: jest.fn().mockReturnThis(),
-    orderBy: jest.fn().mockReturnThis(),
-    limit: jest.fn().mockReturnThis(),
-    get: jest.fn().mockResolvedValue({docs}),
-  };
-  mockOrderBy.mockReturnValue(chain);
-  mockWhere.mockReturnValue(chain);
-  return chain;
-}
+app.use("/reports", reportsRouter);
 
 beforeEach(() => {
   jest.clearAllMocks();
 });
 
-// ─── GET /digests ────────────────────────────────────────────────────────────
+// --- POST /reports/generate ---
 
-describe("GET /digests", () => {
-  it("ダイジェスト一覧を返す", async () => {
-    setupCollectionMock([
-      {id: "d1", data: () => ({topicName: "AI", content: "まとめ"})},
-    ]);
-
-    const res = await request(app).get("/digests");
-    expect(res.status).toBe(200);
-    expect(res.body[0].id).toBe("d1");
-  });
-});
-
-// ─── GET /digests/:id ────────────────────────────────────────────────────────
-
-describe("GET /digests/:id", () => {
-  it("ダイジェスト詳細を返す", async () => {
-    mockDocGet.mockResolvedValue({
-      exists: true,
-      id: "d1",
-      data: () => ({topicName: "AI", content: "まとめ"}),
-    });
-
-    const res = await request(app).get("/digests/d1");
-    expect(res.status).toBe(200);
-    expect(res.body.topicName).toBe("AI");
-  });
-
-  it("存在しない場合 404 を返す", async () => {
-    mockDocGet.mockResolvedValue({exists: false});
-
-    const res = await request(app).get("/digests/unknown");
-    expect(res.status).toBe(404);
-  });
-});
-
-// ─── POST /digests/generate ──────────────────────────────────────────────────
-
-describe("POST /digests/generate", () => {
-  it("topicId がない場合 400 を返す", async () => {
-    const res = await request(app).post("/digests/generate").send({});
+describe("POST /reports/generate", () => {
+  it("butlerId がない場合 400 を返す", async () => {
+    const res = await request(app).post("/reports/generate").send({});
     expect(res.status).toBe(400);
   });
 
-  it("トピックが存在しない場合 404 を返す", async () => {
+  it("AI執事が存在しない場合 404 を返す", async () => {
     mockDocGet.mockResolvedValue({exists: false});
 
     const res = await request(app)
-      .post("/digests/generate")
-      .send({topicId: "t1"});
+      .post("/reports/generate")
+      .send({butlerId: "t1"});
     expect(res.status).toBe(404);
   });
 
@@ -130,14 +75,12 @@ describe("POST /digests/generate", () => {
       }),
     });
 
-    // 記事コレクションのクエリ結果を空にする
     const articleChain = {
       where: jest.fn().mockReturnThis(),
       orderBy: jest.fn().mockReturnThis(),
       limit: jest.fn().mockReturnThis(),
       get: jest.fn().mockResolvedValue({docs: []}),
     };
-    // collection("articles") のモックを上書き
     const {db} = jest.requireMock("../firebase");
     db.collection.mockImplementation((col: string) => {
       if (col === "articles") return articleChain;
@@ -145,12 +88,12 @@ describe("POST /digests/generate", () => {
     });
 
     const res = await request(app)
-      .post("/digests/generate")
-      .send({topicId: "t1"});
+      .post("/reports/generate")
+      .send({butlerId: "t1"});
     expect(res.status).toBe(422);
   });
 
-  it("正常にダイジェストを生成して 201 を返す", async () => {
+  it("正常にレポートを生成して 201 を返す", async () => {
     const mockArticle = {
       id: "a1",
       data: () => ({
@@ -181,17 +124,16 @@ describe("POST /digests/generate", () => {
       return {
         doc: jest.fn(() => ({get: mockDocGet})),
         add: mockAdd,
-        orderBy: mockOrderBy,
       };
     });
-    mockAdd.mockResolvedValue({id: "new-digest-id"});
+    mockAdd.mockResolvedValue({id: "new-report-id"});
 
     const res = await request(app)
-      .post("/digests/generate")
-      .send({topicId: "t1"});
+      .post("/reports/generate")
+      .send({butlerId: "t1"});
 
     expect(res.status).toBe(201);
-    expect(res.body.id).toBe("new-digest-id");
+    expect(res.body.id).toBe("new-report-id");
     expect(res.body.content).toBe("# ダイジェスト\n本日のまとめ");
     expect(aiGenerateDigest).toHaveBeenCalled();
   });

@@ -12,8 +12,9 @@
 		"check:watch": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json --watch",
 		"test:unit": "vitest run",
 		"test:coverage": "vitest run --coverage",
-		"test:visual": "playwright test",
-		"test:visual:update": "playwright test --update-snapshots"
+		"test:visual": "playwright test --project=desktop --project=tablet --project=mobile",
+		"test:visual:update": "playwright test --project=desktop --project=tablet --project=mobile --update-snapshots",
+		"test:e2e": "playwright test --project=e2e"
 	},
 	"devDependencies": {
 		"@playwright/test": "^1.58.2",

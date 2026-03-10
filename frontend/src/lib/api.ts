@@ -1,8 +1,10 @@
 import { auth } from "./firebase";
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "";
+const VRT_BYPASS = import.meta.env.VITE_VRT_AUTH_BYPASS === "true";
 
 async function getIdToken(): Promise<string> {
+  if (VRT_BYPASS) return "bypass-token";
   const user = auth.currentUser;
   if (!user) throw new Error("Not authenticated");
   return user.getIdToken();

@@ -281,6 +281,8 @@ jobs:
       vrt_icon:   ${{ steps.format_vrt.outputs.vrt_icon }}
       vrt_counts: ${{ steps.format_vrt.outputs.vrt_counts }}
       vrt_url:    ${{ steps.format_vrt.outputs.vrt_url }}
+      e2e_icon:   ${{ steps.format_e2e.outputs.e2e_icon }}
+      e2e_counts: ${{ steps.format_e2e.outputs.e2e_counts }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -311,6 +313,32 @@ jobs:
 
       - name: Run Playwright (capture screenshots)
         run: cd frontend && npm run test:visual
+
+      - name: Run e2e tests
+        id: e2e
+        run: |
+          cd frontend
+          npm run test:e2e 2>&1 | tee /tmp/e2e-output.txt
+          exit ${PIPESTATUS[0]}
+
+      - name: Format e2e report line
+        id: format_e2e
+        if: always()
+        run: |
+          OUTPUT=$(cat /tmp/e2e-output.txt 2>/dev/null \
+            | sed 's/\x1b\[[0-9;]*m//g' || echo "")
+          PASSED=$(echo "$OUTPUT" | grep -oP '\d+(?= passed)' | head -1 || echo "")
+          FAILED=$(echo "$OUTPUT" | grep -oP '\d+(?= failed)' | head -1 || echo "0")
+          FAILED=${FAILED:-0}
+          if [ -n "$PASSED" ]; then
+            TOTAL=$((PASSED + FAILED))
+            COUNTS="${PASSED}/${TOTAL}"
+            [ "$FAILED" != "0" ] && ICON="❌" || ICON="✅"
+          else
+            COUNTS="failed" ICON="❌"
+          fi
+          echo "e2e_icon=${ICON}"     >> $GITHUB_OUTPUT
+          echo "e2e_counts=${COUNTS}" >> $GITHUB_OUTPUT
 
       - name: Setup GCS credentials
         env:
@@ -453,6 +481,25 @@ jobs:
           firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_AKANMI_NEWS_BUTLER }}
           projectId: akanmi-news-butler
 
+      - name: Deploy Firestore Rules
+        env:
+          FIREBASE_SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_AKANMI_NEWS_BUTLER }}
+        run: |
+          echo "$FIREBASE_SA" > /tmp/sa.json
+          GOOGLE_APPLICATION_CREDENTIALS=/tmp/sa.json \
+            npx firebase-tools deploy --only firestore:rules \
+            --project akanmi-news-butler --non-interactive
+
+      - name: Deploy Functions to Firebase
+        env:
+          FIREBASE_SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_AKANMI_NEWS_BUTLER }}
+        run: |
+          echo "$FIREBASE_SA" > /tmp/sa.json
+          GOOGLE_APPLICATION_CREDENTIALS=/tmp/sa.json \
+            npx firebase-tools deploy --only functions \
+            --project akanmi-news-butler --non-interactive \
+            || echo "::warning::Functions deploy failed. Enable artifactregistry.googleapis.com in GCP console."
+
       - name: Register preview domain to Firebase Auth
         env:
           FIREBASE_SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_AKANMI_NEWS_BUTLER }}
@@ -531,6 +578,8 @@ jobs:
           FE_COV_URL:  ${{ needs.frontend_check.outputs.fe_cov_url }}
           VRT_ICON:    ${{ needs.visual_regression.outputs.vrt_icon }}
           VRT_URL:     ${{ needs.visual_regression.outputs.vrt_url }}
+          E2E_ICON:    ${{ needs.visual_regression.outputs.e2e_icon }}
+          E2E_COUNTS:  ${{ needs.visual_regression.outputs.e2e_counts }}
         run: |
           label() { if [ "$1" = "✅" ]; then echo "✅ 成功"; elif [ "$1" = "⚠️" ]; then echo "⚠️ 新規"; else echo "❌ 失敗"; fi; }
           link()  { [ -n "$1" ] && echo "[レポート]($1)" || echo "—"; }
@@ -539,13 +588,15 @@ jobs:
           FMT+='| 📊 Functions Coverage | %s | %s |\n'
           FMT+='| 🧪 Frontend UT        | %s | %s |\n'
           FMT+='| 📊 Frontend Coverage  | %s | %s |\n'
-          FMT+='| 🖼️ VRT                | %s | %s |'
+          FMT+='| 🖼️ VRT                | %s | %s |\n'
+          FMT+='| 🎭 E2E                | %s | %s |'
           BODY=$(printf "$FMT" \
             "$(label "$FN_UT_ICON")"  "$(link "$FN_UT_URL")" \
             "$(label "$FN_COV_ICON")" "$(link "$FN_COV_URL")" \
             "$(label "$FE_UT_ICON")"  "$(link "$FE_UT_URL")" \
             "$(label "$FE_COV_ICON")" "$(link "$FE_COV_URL")" \
-            "$(label "$VRT_ICON")"    "$(link "$VRT_URL")")
+            "$(label "$VRT_ICON")"    "$(link "$VRT_URL")" \
+            "$(label "$E2E_ICON")"    "${E2E_COUNTS:-—}")
 
           COMMENT_ID=$(gh api "repos/${REPO}/issues/${PR_NUMBER}/comments" \
             --jq '.[] | select(.body | contains("<!-- ci-report -->")) | .id' | head -1)

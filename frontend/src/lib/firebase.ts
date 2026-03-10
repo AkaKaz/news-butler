@@ -1,5 +1,10 @@
 import { initializeApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
+import {
+  initializeFirestore,
+  connectFirestoreEmulator,
+  memoryLocalCache,
+} from "firebase/firestore";
 
 const firebaseConfig = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -10,3 +15,12 @@ const firebaseConfig = {
 
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
+
+// メモリキャッシュのみ使用（永続キャッシュはエラーをサイレントに飲み込むため不使用）
+export const db = initializeFirestore(app, {
+  localCache: memoryLocalCache(),
+});
+
+if (import.meta.env.VITE_USE_FIREBASE_EMULATOR === "true") {
+  connectFirestoreEmulator(db, "localhost", 8080);
+}

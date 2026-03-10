@@ -18,12 +18,15 @@ export default defineConfig({
     screenshot: "only-on-failure",
   },
   projects: [
+    // ── VRT: スクリーンショット取得（3デバイス × visual.spec.ts のみ）───
     {
       name: "desktop",
+      testMatch: "**/visual.spec.ts",
       use: {...devices["Desktop Chrome"]},
     },
     {
       name: "tablet",
+      testMatch: "**/visual.spec.ts",
       use: {
         ...devices["Desktop Chrome"],
         viewport: {width: 768, height: 1024},
@@ -31,7 +34,14 @@ export default defineConfig({
     },
     {
       name: "mobile",
+      testMatch: "**/visual.spec.ts",
       use: {...devices["iPhone 15"]},
+    },
+    // ── E2E: UIインタラクションテスト（e2e.spec.ts のみ、デスクトップ）──
+    {
+      name: "e2e",
+      testMatch: "**/e2e.spec.ts",
+      use: {...devices["Desktop Chrome"]},
     },
   ],
   webServer: {
