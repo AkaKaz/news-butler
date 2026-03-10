@@ -104,6 +104,20 @@ build_and_preview─┘
 - force push 時: 上書きされた旧 SHA のレポートを削除
 - `cleanup-gcs-reports.yml` が自動処理するため、手動削除は不要
 
+### VRT（Visual Regression Testing）
+
+- ツール: Playwright + reg-suit + GCS
+- キャプチャページ: `/reports`、`/butlers`
+- デバイス3種:
+  - `desktop`: Desktop Chrome（1280×800）
+  - `tablet`: Desktop Chrome（768×1024）
+  - `mobile`: iPhone 15（WebKit）
+- スナップショット名: `{ページ}-{デバイス}.png`（例: `reports-mobile.png`）
+- **WebKit のインストールが必要**: CI で `npx playwright install chromium webkit --with-deps`
+- **ログインバイパス**: VRT ビルド時のみ `VITE_VRT_AUTH_BYPASS=true` をセット
+  - `+layout.svelte` でこのフラグを確認し、Firebase Auth 検証をスキップしてアプリ本体を表示
+  - 本番ビルド（`build_and_preview` ジョブ）にはこのフラグを渡さない
+
 ### CI 変更時の注意
 
 - ワークフロー YAML に Python スクリプトを直接埋め込む場合は **ヒアドキュメントや引用符のエスケープに注意**。複雑な場合はスクリプトファイルを別途作成して呼び出す
