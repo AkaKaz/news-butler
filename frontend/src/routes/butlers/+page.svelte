@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { api } from "$lib/api";
+  import { getButlers, createButler as fsCreateButler } from "$lib/firestore";
   import type { Butler } from "$lib/types";
 
   let butlers = $state<Butler[]>([]);
@@ -12,7 +12,7 @@
 
   async function load() {
     try {
-      butlers = await api.get<Butler[]>("/butlers");
+      butlers = await getButlers();
     } catch (e) {
       error = e instanceof Error ? e.message : "読み込みに失敗しました";
     } finally {
@@ -24,7 +24,7 @@
     if (!newName.trim()) return;
     creating = true;
     try {
-      const created = await api.post<Butler>("/butlers", {
+      const created = await fsCreateButler({
         name: newName.trim(),
         description: newDescription.trim(),
       });

@@ -2,8 +2,6 @@ import express from "express";
 import request from "supertest";
 
 const mockAdd = jest.fn();
-const mockOrderBy = jest.fn();
-const mockWhere = jest.fn();
 const mockDocGet = jest.fn();
 
 jest.mock("../firebase", () => ({
@@ -11,7 +9,6 @@ jest.mock("../firebase", () => ({
     collection: jest.fn((col: string) => {
       if (col === "digests") {
         return {
-          orderBy: mockOrderBy,
           doc: jest.fn(() => ({get: mockDocGet})),
           add: mockAdd,
         };
@@ -49,62 +46,8 @@ app.use((req, _res, next) => {
 });
 app.use("/reports", reportsRouter);
 
-/**
- * Firestore クエリチェーンのモックを設定する。
- * @param {object[]} docs モックで返すドキュメント配列
- * @return {object} チェーンオブジェクト
- */
-function setupCollectionMock(docs: object[]) {
-  const chain = {
-    where: jest.fn().mockReturnThis(),
-    orderBy: jest.fn().mockReturnThis(),
-    limit: jest.fn().mockReturnThis(),
-    get: jest.fn().mockResolvedValue({docs}),
-  };
-  mockOrderBy.mockReturnValue(chain);
-  mockWhere.mockReturnValue(chain);
-  return chain;
-}
-
 beforeEach(() => {
   jest.clearAllMocks();
-});
-
-// --- GET /reports ---
-
-describe("GET /reports", () => {
-  it("レポート一覧を返す", async () => {
-    setupCollectionMock([
-      {id: "d1", data: () => ({topicName: "AI", content: "まとめ"})},
-    ]);
-
-    const res = await request(app).get("/reports");
-    expect(res.status).toBe(200);
-    expect(res.body[0].id).toBe("d1");
-  });
-});
-
-// --- GET /reports/:id ---
-
-describe("GET /reports/:id", () => {
-  it("レポート詳細を返す", async () => {
-    mockDocGet.mockResolvedValue({
-      exists: true,
-      id: "d1",
-      data: () => ({topicName: "AI", content: "まとめ"}),
-    });
-
-    const res = await request(app).get("/reports/d1");
-    expect(res.status).toBe(200);
-    expect(res.body.topicName).toBe("AI");
-  });
-
-  it("存在しない場合 404 を返す", async () => {
-    mockDocGet.mockResolvedValue({exists: false});
-
-    const res = await request(app).get("/reports/unknown");
-    expect(res.status).toBe(404);
-  });
 });
 
 // --- POST /reports/generate ---
@@ -132,14 +75,12 @@ describe("POST /reports/generate", () => {
       }),
     });
 
-    // 記事コレクションのクエリ結果を空にする
     const articleChain = {
       where: jest.fn().mockReturnThis(),
       orderBy: jest.fn().mockReturnThis(),
       limit: jest.fn().mockReturnThis(),
       get: jest.fn().mockResolvedValue({docs: []}),
     };
-    // collection("articles") のモックを上書き
     const {db} = jest.requireMock("../firebase");
     db.collection.mockImplementation((col: string) => {
       if (col === "articles") return articleChain;
@@ -183,7 +124,6 @@ describe("POST /reports/generate", () => {
       return {
         doc: jest.fn(() => ({get: mockDocGet})),
         add: mockAdd,
-        orderBy: mockOrderBy,
       };
     });
     mockAdd.mockResolvedValue({id: "new-report-id"});

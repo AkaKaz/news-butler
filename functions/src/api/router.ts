@@ -1,8 +1,6 @@
 import {Router} from "express";
 import {authenticate} from "./middleware";
 import {sourcesRouter} from "./sources";
-import {articlesRouter} from "./articles";
-import {butlersRouter} from "./butlers";
 import {reportsRouter} from "./reports";
 
 // eslint-disable-next-line new-cap
@@ -16,7 +14,7 @@ router.get("/health", (_req, res) => {
   res.json({status: "ok"});
 });
 
+// sources/validate: RSS URL検証 (CORS回避)
 router.use("/sources", sourcesRouter);
-router.use("/articles", articlesRouter);
-router.use("/butlers", butlersRouter);
+// reports/generate: AI レポート生成
 router.use("/reports", reportsRouter);

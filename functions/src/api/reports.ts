@@ -7,43 +7,9 @@ import {Report, GenerateReportRequest, Butler, Article} from "../types";
 // eslint-disable-next-line new-cap
 export const reportsRouter = Router();
 
-const COL_REPORTS = "digests"; // Firestoreコレクション名は互換性のため維持
-const COL_BUTLERS = "topics"; // Firestoreコレクション名は互換性のため維持
+const COL_REPORTS = "digests";
+const COL_BUTLERS = "topics";
 const COL_ARTICLES = "articles";
-
-/** レポート一覧（クエリ: butlerId） */
-reportsRouter.get("/", async (req, res, next) => {
-  try {
-    const {butlerId} = req.query as {butlerId?: string};
-
-    let query = db.collection(COL_REPORTS)
-      .orderBy("generatedAt", "desc")
-      .limit(50) as FirebaseFirestore.Query;
-
-    if (butlerId) {
-      query = query.where("topicId", "==", butlerId);
-    }
-
-    const snap = await query.get();
-    res.json(snap.docs.map((d) => ({id: d.id, ...d.data()})));
-  } catch (e) {
-    next(e);
-  }
-});
-
-/** レポート詳細 */
-reportsRouter.get("/:id", async (req, res, next) => {
-  try {
-    const snap = await db.collection(COL_REPORTS).doc(req.params.id).get();
-    if (!snap.exists) {
-      res.status(404).json({error: "レポートが見つかりません"});
-      return;
-    }
-    res.json({id: snap.id, ...snap.data()});
-  } catch (e) {
-    next(e);
-  }
-});
 
 /** レポート手動生成 */
 reportsRouter.post("/generate", async (req, res, next) => {
@@ -54,7 +20,6 @@ reportsRouter.post("/generate", async (req, res, next) => {
       return;
     }
 
-    // AI執事取得
     const butlerSnap = await db.collection(COL_BUTLERS).doc(butlerId).get();
     if (!butlerSnap.exists) {
       res.status(404).json({error: "AI執事が見つかりません"});
@@ -62,13 +27,11 @@ reportsRouter.post("/generate", async (req, res, next) => {
     }
     const butler = butlerSnap.data() as Butler;
 
-    // 対象期間
     const periodEnd = to ? new Date(to) : new Date();
     const periodStart = from ?
       new Date(from) :
       new Date(periodEnd.getTime() - 24 * 60 * 60 * 1000);
 
-    // 記事取得
     let articleQuery = db.collection(COL_ARTICLES)
       .where("isProcessed", "==", true)
       .where("publishedAt", ">=", Timestamp.fromDate(periodStart))
@@ -97,7 +60,6 @@ reportsRouter.post("/generate", async (req, res, next) => {
       return;
     }
 
-    // AI レポート生成
     const content = await aiGenerateDigest(
       butler.name,
       butler.description,
@@ -109,7 +71,6 @@ reportsRouter.post("/generate", async (req, res, next) => {
       }))
     );
 
-    // Firestore に保存（フィールド名は互換性のため維持）
     const now = Timestamp.now();
     const report: Omit<Report, "id"> = {
       topicId: butlerId,
