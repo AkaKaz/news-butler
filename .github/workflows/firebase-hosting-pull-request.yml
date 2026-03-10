@@ -307,6 +307,7 @@ jobs:
           VITE_FIREBASE_PROJECT_ID:   dummy
           VITE_FIREBASE_APP_ID:       dummy
           VITE_API_BASE_URL:          http://localhost:3000
+          VITE_VRT_AUTH_BYPASS:       true
 
       - name: Run Playwright (capture screenshots)
         run: cd frontend && npm run test:visual

@@ -7,6 +7,8 @@
 
   let { children } = $props();
 
+  const vrtBypass = import.meta.env.VITE_VRT_AUTH_BYPASS === "true";
+
   const tabPaths = ["/reports", "/butlers"];
 
   function isActive(path: string): boolean {
@@ -68,12 +70,12 @@
   <link rel="icon" href={favicon} />
 </svelte:head>
 
-{#if authStore.loading}
+{#if !vrtBypass && authStore.loading}
   <div class="flex h-screen items-center justify-center bg-base-200">
     <span class="loading loading-spinner loading-lg text-primary"></span>
   </div>
 
-{:else if !authStore.user}
+{:else if !vrtBypass && !authStore.user}
   <div class="login-bg flex h-screen flex-col items-center justify-center gap-8">
     <div class="login-card flex flex-col items-center gap-6 rounded-2xl p-10">
       <div class="logo-mark">
