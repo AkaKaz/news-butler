@@ -78,6 +78,15 @@ jobs:
           gsutil cp functions/reports/coverage.html \
             "gs://${BUCKET}/coverage/${SHA}.html"
 
+      - name: Deploy Firestore Rules
+        env:
+          FIREBASE_SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_AKANMI_NEWS_BUTLER }}
+        run: |
+          echo "$FIREBASE_SA" > /tmp/sa.json
+          GOOGLE_APPLICATION_CREDENTIALS=/tmp/sa.json \
+            npx firebase-tools deploy --only firestore:rules \
+            --project akanmi-news-butler --non-interactive
+
       - uses: FirebaseExtended/action-hosting-deploy@v0
         with:
           repoToken: ${{ secrets.GITHUB_TOKEN }}
