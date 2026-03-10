@@ -75,7 +75,7 @@ jobs:
         run: |
           BUCKET="akanmi-news-butler-ci"
           SHA="${{ github.sha }}"
-          gsutil cp functions/reports/coverage.html \
+          gsutil cp functions/coverage/index.html \
             "gs://${BUCKET}/coverage/${SHA}.html"
 
       - name: Deploy Firestore Rules
