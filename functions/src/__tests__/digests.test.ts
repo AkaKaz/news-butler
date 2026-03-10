@@ -23,7 +23,9 @@ jest.mock("../firebase", () => ({
 }));
 
 jest.mock("../services/vertexAiService", () => ({
-  generateDigest: jest.fn().mockResolvedValue("# ダイジェスト\n本日のまとめ"),
+  generateDigest: jest.fn().mockResolvedValue(
+    "# ダイジェスト\n本日のまとめ"
+  ),
 }));
 
 jest.mock("firebase-admin/firestore", () => ({
@@ -68,7 +70,7 @@ beforeEach(() => {
   jest.clearAllMocks();
 });
 
-// ─── GET /reports ────────────────────────────────────────────────────────────
+// --- GET /reports ---
 
 describe("GET /reports", () => {
   it("レポート一覧を返す", async () => {
@@ -82,7 +84,7 @@ describe("GET /reports", () => {
   });
 });
 
-// ─── GET /reports/:id ────────────────────────────────────────────────────────
+// --- GET /reports/:id ---
 
 describe("GET /reports/:id", () => {
   it("レポート詳細を返す", async () => {
@@ -105,7 +107,7 @@ describe("GET /reports/:id", () => {
   });
 });
 
-// ─── POST /reports/generate ──────────────────────────────────────────────────
+// --- POST /reports/generate ---
 
 describe("POST /reports/generate", () => {
   it("butlerId がない場合 400 を返す", async () => {

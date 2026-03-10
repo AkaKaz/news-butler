@@ -40,7 +40,7 @@ beforeEach(() => {
   });
 });
 
-// ─── GET /butlers ─────────────────────────────────────────────────────────────
+// --- GET /butlers ---
 
 describe("GET /butlers", () => {
   it("AI執事一覧を返す", async () => {
@@ -58,7 +58,7 @@ describe("GET /butlers", () => {
   });
 });
 
-// ─── POST /butlers ────────────────────────────────────────────────────────────
+// --- POST /butlers ---
 
 describe("POST /butlers", () => {
   it("AI執事を追加する", async () => {
@@ -85,7 +85,7 @@ describe("POST /butlers", () => {
   });
 });
 
-// ─── PUT /butlers/:id ─────────────────────────────────────────────────────────
+// --- PUT /butlers/:id ---
 
 describe("PUT /butlers/:id", () => {
   it("既存AI執事を更新する", async () => {
@@ -109,7 +109,7 @@ describe("PUT /butlers/:id", () => {
   });
 });
 
-// ─── DELETE /butlers/:id ──────────────────────────────────────────────────────
+// --- DELETE /butlers/:id ---
 
 describe("DELETE /butlers/:id", () => {
   it("AI執事を削除する（204）", async () => {
