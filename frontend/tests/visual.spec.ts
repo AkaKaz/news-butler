@@ -13,10 +13,10 @@ const pages = [
 ];
 
 for (const {name, path} of pages) {
-  test(`${name} screenshot`, async ({page}) => {
+  test(`${name} screenshot`, async ({page}, testInfo) => {
     await page.goto(path);
     await page.screenshot({
-      path: `${snapshotDir}/${name}.png`,
+      path: `${snapshotDir}/${name}-${testInfo.project.name}.png`,
       fullPage: true,
     });
   });
