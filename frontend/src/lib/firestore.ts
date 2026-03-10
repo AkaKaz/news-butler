@@ -43,12 +43,36 @@ const MOCK_BUTLERS: Butler[] = [
     name: "ビジネスインサイト",
     description: "ビジネス・経済ニュースをまとめます",
     keywords: ["経済", "M&A", "決算"],
-    sourceIds: [],
+    sourceIds: ["src-3"],
+    scheduleEnabled: true,
+    scheduleCron: "0 9 * * 1",
+    isActive: true,
+    createdAt: { seconds: 1699900000, nanoseconds: 0 },
+    updatedAt: { seconds: 1699900000, nanoseconds: 0 },
+  },
+  {
+    id: "mock-3",
+    name: "グローバルニュース",
+    description: "海外メディアの主要ニュースを日本語でまとめます",
+    keywords: ["国際", "政治", "環境", "社会"],
+    sourceIds: ["src-1"],
     scheduleEnabled: false,
     scheduleCron: null,
     isActive: true,
-    createdAt: { seconds: 1700000000, nanoseconds: 0 },
-    updatedAt: { seconds: 1700000000, nanoseconds: 0 },
+    createdAt: { seconds: 1699800000, nanoseconds: 0 },
+    updatedAt: { seconds: 1699800000, nanoseconds: 0 },
+  },
+  {
+    id: "mock-4",
+    name: "スポーツハイライト",
+    description: "",
+    keywords: [],
+    sourceIds: [],
+    scheduleEnabled: false,
+    scheduleCron: null,
+    isActive: false,
+    createdAt: { seconds: 1699700000, nanoseconds: 0 },
+    updatedAt: { seconds: 1699700000, nanoseconds: 0 },
   },
 ];
 
@@ -66,6 +90,32 @@ const MOCK_SOURCES: Source[] = [
     createdAt: { seconds: 1700000000, nanoseconds: 0 },
     updatedAt: { seconds: 1700000000, nanoseconds: 0 },
   },
+  {
+    id: "src-2",
+    name: "Wired Japan",
+    url: "https://wired.jp/rssfeeds/",
+    category: "tech",
+    tags: ["テクノロジー", "カルチャー"],
+    isActive: true,
+    fetchIntervalMinutes: 120,
+    lastFetchedAt: { seconds: 1699990000, nanoseconds: 0 },
+    consecutiveErrors: 0,
+    createdAt: { seconds: 1699950000, nanoseconds: 0 },
+    updatedAt: { seconds: 1699950000, nanoseconds: 0 },
+  },
+  {
+    id: "src-3",
+    name: "日本経済新聞",
+    url: "https://www.nikkei.com/rss/",
+    category: "business",
+    tags: ["経済", "ビジネス"],
+    isActive: false,
+    fetchIntervalMinutes: 60,
+    lastFetchedAt: { seconds: 1699900000, nanoseconds: 0 },
+    consecutiveErrors: 3,
+    createdAt: { seconds: 1699850000, nanoseconds: 0 },
+    updatedAt: { seconds: 1699850000, nanoseconds: 0 },
+  },
 ];
 
 const MOCK_REPORTS: Report[] = [
@@ -73,12 +123,78 @@ const MOCK_REPORTS: Report[] = [
     id: "rep-1",
     topicId: "mock-1",
     topicName: "テクノロジーウォッチャー",
-    content: "## 今日のテクノロジーニュース\n\n- AI分野で新たな進展がありました。",
-    articleIds: ["art-1"],
-    articleCount: 5,
+    content: `## 今日のテクノロジーニュース
+
+### 注目トピック
+
+**1. 生成AI の新展開**
+大手テクノロジー企業が新世代の大規模言語モデルを発表。推論速度が従来比3倍に向上し、コスト削減にも成功した。マルチモーダル対応も強化され、画像・動画・音声を統合的に処理できるようになった。
+
+**2. クラウド市場の動向**
+AWS・Azure・GCPの第3四半期決算が出揃い、3社合計の市場規模が前年比28%増加。エンタープライズ向けAIサービスが牽引役となっている。
+
+**3. スタートアップ資金調達**
+AIインフラスタートアップ2社が合計120億円の資金調達を完了。データセンター拡張に充当予定。
+
+---
+*集計期間: 2023-11-14 ~ 2023-11-15 / 参照記事: 12件*`,
+    articleIds: ["art-1", "art-2", "art-3"],
+    articleCount: 12,
     periodStart: { seconds: 1699913600, nanoseconds: 0 },
     periodEnd: { seconds: 1700000000, nanoseconds: 0 },
     generatedAt: { seconds: 1700000000, nanoseconds: 0 },
+  },
+  {
+    id: "rep-2",
+    topicId: "mock-2",
+    topicName: "ビジネスインサイト",
+    content: `## ビジネスインサイト 週次まとめ
+
+### M&A・資本動向
+国内製造業大手が欧州スタートアップを約800億円で買収。DX推進を加速する狙い。
+
+### 決算ハイライト
+小売大手3社の中間決算が出揃い、EC売上比率が初めて全体の40%を突破。
+
+---
+*集計期間: 2023-11-07 ~ 2023-11-14 / 参照記事: 8件*`,
+    articleIds: ["art-4"],
+    articleCount: 8,
+    periodStart: { seconds: 1699308800, nanoseconds: 0 },
+    periodEnd: { seconds: 1699913600, nanoseconds: 0 },
+    generatedAt: { seconds: 1699920000, nanoseconds: 0 },
+  },
+  {
+    id: "rep-3",
+    topicId: "mock-1",
+    topicName: "テクノロジーウォッチャー",
+    content: `## テクノロジーウォッチャー 前日まとめ
+
+半導体大手が次世代チップのロードマップを公開。2025年に向けた製造プロセス刷新が明らかに。
+
+---
+*集計期間: 2023-11-13 ~ 2023-11-14 / 参照記事: 5件*`,
+    articleIds: ["art-5"],
+    articleCount: 5,
+    periodStart: { seconds: 1699827200, nanoseconds: 0 },
+    periodEnd: { seconds: 1699913600, nanoseconds: 0 },
+    generatedAt: { seconds: 1699914000, nanoseconds: 0 },
+  },
+  {
+    id: "rep-4",
+    topicId: "mock-3",
+    topicName: "グローバルニュース",
+    content: `## グローバルニュース ダイジェスト
+
+COP28 が開幕。再生可能エネルギーへの移行加速を巡り各国が交渉。日本は2030年目標の上積みを表明。
+
+---
+*集計期間: 2023-11-13 ~ 2023-11-14 / 参照記事: 6件*`,
+    articleIds: ["art-6"],
+    articleCount: 6,
+    periodStart: { seconds: 1699827200, nanoseconds: 0 },
+    periodEnd: { seconds: 1699913600, nanoseconds: 0 },
+    generatedAt: { seconds: 1699916000, nanoseconds: 0 },
   },
 ];
 
