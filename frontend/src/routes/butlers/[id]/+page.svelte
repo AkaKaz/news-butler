@@ -32,12 +32,25 @@
   let badgeContainerEl = $state<HTMLDivElement | null>(null);
   let hiddenSourceCount = $state(0);
 
-  // Swipe-to-close
+  // Swipe-to-close (finger tracking)
+  let sheetDragY = $state(0);
   let touchStartY = 0;
-  function onTouchStart(e: TouchEvent) { touchStartY = e.touches[0].clientY; }
-  function onTouchEnd(e: TouchEvent) {
-    const dy = e.changedTouches[0].clientY - touchStartY;
-    if (dy > 80) closeEdit();
+
+  function onSheetTouchStart(e: TouchEvent) {
+    touchStartY = e.touches[0].clientY;
+    sheetDragY = 0;
+  }
+  function onSheetTouchMove(e: TouchEvent) {
+    const dy = e.touches[0].clientY - touchStartY;
+    sheetDragY = Math.max(0, dy);
+  }
+  function onSheetTouchEnd() {
+    if (sheetDragY > 160) {
+      sheetDragY = 0;
+      closeEdit();
+    } else {
+      sheetDragY = 0;
+    }
   }
 
   async function loadData() {
@@ -88,6 +101,7 @@
     editIconFile = null;
     if (editIconPreviewUrl) URL.revokeObjectURL(editIconPreviewUrl);
     editIconPreviewUrl = null;
+    sheetDragY = 0;
     showEditModal = true;
   }
 
@@ -344,8 +358,13 @@
     class="fixed z-50 bg-base-100 shadow-xl
       inset-x-0 bottom-0 rounded-t-3xl pt-5 pb-safe
       lg:inset-auto lg:top-1/2 lg:left-1/2 lg:-translate-x-1/2 lg:-translate-y-1/2 lg:rounded-2xl lg:w-[420px]"
-    ontouchstart={onTouchStart}
-    ontouchend={onTouchEnd}
+    style="transform: translateY({sheetDragY}px); transition: {sheetDragY > 0 ? 'none' : 'transform 0.3s cubic-bezier(0.32,0.72,0,1)'};"
+    ontouchstart={onSheetTouchStart}
+    ontouchmove={onSheetTouchMove}
+    ontouchend={onSheetTouchEnd}
+    role="dialog"
+    aria-modal="true"
+    aria-label="AI執事を編集"
   >
     <!-- Pull handle (mobile only) -->
     <div class="mx-auto w-10 h-1 rounded-full bg-base-300 mb-4 lg:hidden"></div>
