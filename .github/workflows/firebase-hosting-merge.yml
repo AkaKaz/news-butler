@@ -84,7 +84,7 @@ jobs:
           GOOGLE_APPLICATION_CREDENTIALS: /tmp/firebase-sa.json
         run: |
           echo "$FIREBASE_SA" > /tmp/firebase-sa.json
-          npx firebase-tools deploy --only firestore:rules \
+          npx firebase-tools deploy --only firestore:rules,firestore:indexes \
             --project akanmi-news-butler --non-interactive
 
       - uses: FirebaseExtended/action-hosting-deploy@v0

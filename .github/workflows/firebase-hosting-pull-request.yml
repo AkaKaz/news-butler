@@ -503,7 +503,7 @@ jobs:
         run: |
           echo "$FIREBASE_SA" > /tmp/sa.json
           GOOGLE_APPLICATION_CREDENTIALS=/tmp/sa.json \
-            npx firebase-tools deploy --only functions \
+            npx firebase-tools deploy --only functions,firestore:indexes \
             --project akanmi-news-butler --non-interactive --force
 
       - name: Register preview domain to Firebase Auth
