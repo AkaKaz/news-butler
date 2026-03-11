@@ -33,3 +33,26 @@ for (const {name, path} of pages) {
     });
   });
 }
+
+// モーダル系スクリーンショット
+test("butler-create-modal screenshot", async ({page}, testInfo) => {
+  await page.goto("/butlers");
+  await waitForContent(page);
+  await page.click('button:has-text("新規作成")');
+  await page.waitForSelector('[aria-label="AI執事を作成"]', {state: "visible"});
+  await page.screenshot({
+    path: `${snapshotDir}/butler-create-modal-${testInfo.project.name}.png`,
+    fullPage: true,
+  });
+});
+
+test("butler-edit-modal screenshot", async ({page}, testInfo) => {
+  await page.goto("/butlers/mock-1");
+  await waitForContent(page);
+  await page.click('[aria-label="編集"]');
+  await page.waitForSelector('[aria-label="AI執事を編集"]', {state: "visible"});
+  await page.screenshot({
+    path: `${snapshotDir}/butler-edit-modal-${testInfo.project.name}.png`,
+    fullPage: true,
+  });
+});

@@ -39,7 +39,7 @@ test.describe("AI執事 新規作成", () => {
   test("キャンセルボタンでモーダルが閉じる", async ({page}) => {
     await page.goto("/butlers");
     await page.getByRole("button", {name: /新規作成/}).click();
-    await page.getByRole("button", {name: "キャンセル"}).click();
+    await page.getByRole("dialog", {name: "AI執事を作成"}).getByRole("button", {name: "閉じる"}).click();
     await expect(
       page.getByRole("heading", {name: "AI執事を作成"})
     ).not.toBeVisible();
@@ -95,5 +95,19 @@ test.describe("AI執事詳細", () => {
       .first()
       .click();
     await expect(page).toHaveURL(/\/butlers\/mock-1/);
+  });
+
+  test("有効・無効トグルスイッチが表示される", async ({page}) => {
+    await page.goto("/butlers/mock-1");
+    const toggle = page.getByRole("checkbox", {name: /有効|無効/});
+    await expect(toggle).toBeVisible();
+    // mock-1 は isActive: true なので ON になっている
+    await expect(toggle).toBeChecked();
+  });
+
+  test("戻るボタンで一覧ページに戻る", async ({page}) => {
+    await page.goto("/butlers/mock-1");
+    await page.getByRole("link", {name: "戻る"}).click();
+    await expect(page).toHaveURL(/\/butlers$/);
   });
 });

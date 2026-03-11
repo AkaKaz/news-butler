@@ -17,8 +17,9 @@ import {
   serverTimestamp,
   Timestamp,
 } from "firebase/firestore";
-import { db } from "./firebase";
-import type { Butler, Report, Source } from "./types";
+import { ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
+import { db, storage } from "./firebase";
+import type { Butler, DigestConfig, Report, Source } from "./types";
 
 const VRT = import.meta.env.VITE_VRT_AUTH_BYPASS === "true";
 const BASE_URL = import.meta.env.VITE_API_BASE_URL ?? "";
@@ -30,6 +31,8 @@ const MOCK_BUTLERS: Butler[] = [
     id: "mock-1",
     name: "テクノロジーウォッチャー",
     description: "最新のテクノロジーニュースを監視します",
+    iconUrl: null,
+    iconColor: "#6366f1",
     keywords: ["AI", "クラウド", "スタートアップ"],
     sourceIds: ["src-1", "src-2"],
     scheduleEnabled: true,
@@ -42,6 +45,8 @@ const MOCK_BUTLERS: Butler[] = [
     id: "mock-2",
     name: "ビジネスインサイト",
     description: "ビジネス・経済ニュースをまとめます",
+    iconUrl: null,
+    iconColor: "#f97316",
     keywords: ["経済", "M&A", "決算"],
     sourceIds: ["src-3"],
     scheduleEnabled: true,
@@ -54,6 +59,8 @@ const MOCK_BUTLERS: Butler[] = [
     id: "mock-3",
     name: "グローバルニュース",
     description: "海外メディアの主要ニュースを日本語でまとめます",
+    iconUrl: null,
+    iconColor: "#22c55e",
     keywords: ["国際", "政治", "環境", "社会"],
     sourceIds: ["src-1"],
     scheduleEnabled: false,
@@ -66,6 +73,8 @@ const MOCK_BUTLERS: Butler[] = [
     id: "mock-4",
     name: "スポーツハイライト",
     description: "",
+    iconUrl: null,
+    iconColor: "#ec4899",
     keywords: [],
     sourceIds: [],
     scheduleEnabled: false,
@@ -79,6 +88,7 @@ const MOCK_BUTLERS: Butler[] = [
 const MOCK_SOURCES: Source[] = [
   {
     id: "src-1",
+    topicId: "mock-1",
     name: "TechCrunch Japan",
     url: "https://jp.techcrunch.com/feed/",
     category: "tech",
@@ -92,6 +102,7 @@ const MOCK_SOURCES: Source[] = [
   },
   {
     id: "src-2",
+    topicId: "mock-1",
     name: "Wired Japan",
     url: "https://wired.jp/rssfeeds/",
     category: "tech",
@@ -105,6 +116,7 @@ const MOCK_SOURCES: Source[] = [
   },
   {
     id: "src-3",
+    topicId: "mock-2",
     name: "日本経済新聞",
     url: "https://www.nikkei.com/rss/",
     category: "business",
@@ -224,7 +236,7 @@ export async function getButler(id: string): Promise<Butler | null> {
 }
 
 export async function createButler(
-  data: Pick<Butler, "name" | "description">
+  data: Pick<Butler, "name" | "description" | "iconUrl" | "iconColor">
 ): Promise<Butler> {
   if (VRT) {
     const b: Butler = {
@@ -244,6 +256,8 @@ export async function createButler(
   const ref = await addDoc(collection(db, "topics"), {
     name: data.name,
     description: data.description ?? "",
+    iconUrl: data.iconUrl ?? null,
+    iconColor: data.iconColor,
     keywords: [],
     sourceIds: [],
     scheduleEnabled: false,
@@ -254,6 +268,14 @@ export async function createButler(
   });
   const created = await getDoc(ref);
   return { id: created.id, ...created.data() } as Butler;
+}
+
+export async function uploadButlerIcon(butlerId: string, file: File): Promise<string> {
+  if (VRT) return "";
+  const ext = file.name.split(".").pop() ?? "jpg";
+  const r = storageRef(storage, `butler-icons/${butlerId}/${Date.now()}.${ext}`);
+  await uploadBytes(r, file);
+  return getDownloadURL(r);
 }
 
 export async function updateButler(
@@ -383,4 +405,34 @@ export async function generateReport(
     throw new Error(`${res.status} ${text}`);
   }
   return res.json() as Promise<Report>;
+}
+
+// ── Sources (Butler-scoped) ───────────────────────────────────────────────────
+
+export async function getSourcesByButler(butlerId: string): Promise<Source[]> {
+  if (VRT) return MOCK_SOURCES.filter((s) => s.topicId === butlerId);
+  const snap = await getDocs(
+    query(
+      collection(db, "sources"),
+      where("topicId", "==", butlerId),
+      orderBy("createdAt", "desc")
+    )
+  );
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as Source));
+}
+
+// ── DigestConfigs ─────────────────────────────────────────────────────────────
+
+const MOCK_DIGEST_CONFIGS: DigestConfig[] = [];
+
+export async function getDigestConfigs(butlerId: string): Promise<DigestConfig[]> {
+  if (VRT) return MOCK_DIGEST_CONFIGS.filter((c) => c.topicId === butlerId);
+  const snap = await getDocs(
+    query(
+      collection(db, "digest_configs"),
+      where("topicId", "==", butlerId),
+      orderBy("createdAt", "desc")
+    )
+  );
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() } as DigestConfig));
 }

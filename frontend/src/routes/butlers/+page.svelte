@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { getButlers, createButler as fsCreateButler } from "$lib/firestore";
+  import { getButlers, createButler as fsCreateButler, updateButler, uploadButlerIcon } from "$lib/firestore";
+  import { ICON_COLORS, randomIconColor } from "$lib/types";
   import type { Butler } from "$lib/types";
 
   let butlers = $state<Butler[]>([]);
@@ -7,8 +8,35 @@
   let error = $state<string | null>(null);
   let showCreateModal = $state(false);
   let creating = $state(false);
+
+  // Swipe-to-close (finger tracking)
+  let sheetDragY = $state(0);
+  let touchStartY = 0;
+
+  function onSheetTouchStart(e: TouchEvent) {
+    touchStartY = e.touches[0].clientY;
+    sheetDragY = 0;
+  }
+  function onSheetTouchMove(e: TouchEvent) {
+    const dy = e.touches[0].clientY - touchStartY;
+    sheetDragY = Math.max(0, dy);
+  }
+  function onSheetTouchEnd() {
+    if (sheetDragY > 160) {
+      sheetDragY = 0;
+      closeCreate();
+    } else {
+      sheetDragY = 0;
+    }
+  }
+
+  // Form state
   let newName = $state("");
   let newDescription = $state("");
+  let newColor = $state(randomIconColor());
+  let iconFile = $state<File | null>(null);
+  let iconPreviewUrl = $state<string | null>(null);
+  let fileInputEl = $state<HTMLInputElement | null>(null);
 
   async function load() {
     try {
@@ -20,6 +48,29 @@
     }
   }
 
+  function openCreate() {
+    newName = "";
+    newDescription = "";
+    newColor = randomIconColor();
+    iconFile = null;
+    if (iconPreviewUrl) URL.revokeObjectURL(iconPreviewUrl);
+    iconPreviewUrl = null;
+    sheetDragY = 0;
+    showCreateModal = true;
+  }
+
+  function closeCreate() {
+    showCreateModal = false;
+  }
+
+  function onFileChange(e: Event) {
+    const input = e.currentTarget as HTMLInputElement;
+    const file = input.files?.[0] ?? null;
+    iconFile = file;
+    if (iconPreviewUrl) URL.revokeObjectURL(iconPreviewUrl);
+    iconPreviewUrl = file ? URL.createObjectURL(file) : null;
+  }
+
   async function createButler() {
     if (!newName.trim()) return;
     creating = true;
@@ -27,11 +78,16 @@
       const created = await fsCreateButler({
         name: newName.trim(),
         description: newDescription.trim(),
+        iconUrl: null,
+        iconColor: newColor,
       });
+      if (iconFile) {
+        const url = await uploadButlerIcon(created.id, iconFile);
+        await updateButler(created.id, { iconUrl: url });
+        created.iconUrl = url;
+      }
       butlers = [created, ...butlers];
-      showCreateModal = false;
-      newName = "";
-      newDescription = "";
+      closeCreate();
     } catch (e) {
       error = e instanceof Error ? e.message : "作成に失敗しました";
     } finally {
@@ -45,17 +101,8 @@
 </script>
 
 <div class="p-4 lg:p-6">
-  <div class="flex items-center justify-between mb-6">
+  <div class="mb-6">
     <h1 class="text-2xl font-bold tracking-tight">AI執事</h1>
-    <button
-      class="btn btn-primary btn-sm gap-1.5"
-      onclick={() => (showCreateModal = true)}
-    >
-      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
-      </svg>
-      新規作成
-    </button>
   </div>
 
   {#if loading}
@@ -65,121 +112,227 @@
 
   {:else if error}
     <div class="alert alert-error">
-      <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+      <svg class="w-5 h-5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
         <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/>
       </svg>
       <span>{error}</span>
     </div>
 
-  {:else if butlers.length === 0}
-    <div class="flex flex-col items-center justify-center py-24 gap-4 text-base-content/50">
-      <svg class="w-16 h-16" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.5"/>
-        <circle cx="12" cy="2.5" r="0.5" fill="currentColor" stroke="none"/>
-        <rect x="4" y="5.5" width="16" height="11" rx="2"/>
-        <circle cx="9" cy="10.5" r="1.5" fill="currentColor" stroke="none"/>
-        <circle cx="15" cy="10.5" r="1.5" fill="currentColor" stroke="none"/>
-        <path stroke-linecap="round" stroke-linejoin="round" d="M9 14h6"/>
-      </svg>
-      <div class="text-center">
-        <p class="font-medium">AI執事がいません</p>
-        <p class="text-sm mt-1">「新規作成」ボタンから追加してください</p>
-      </div>
-    </div>
-
   {:else}
-    <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+    <div class="grid gap-3 grid-cols-2 sm:grid-cols-3 lg:grid-cols-4">
       {#each butlers as butler (butler.id)}
         <a
           href="/butlers/{butler.id}"
-          class="card card-bordered bg-base-100 hover:shadow-md hover:border-primary/30 transition-all duration-150 cursor-pointer"
+          class="flex flex-col items-center gap-3 p-4 rounded-2xl bg-base-100 border border-base-200 hover:border-primary/30 hover:shadow-md transition-all duration-150 cursor-pointer text-center"
         >
-          <div class="card-body p-4 gap-2">
-            <div class="flex items-start justify-between gap-2">
-              <h2 class="card-title text-base font-semibold leading-snug">{butler.name}</h2>
-              <span class="badge badge-sm shrink-0" class:badge-success={butler.isActive} class:badge-ghost={!butler.isActive}>
-                {butler.isActive ? "有効" : "無効"}
-              </span>
-            </div>
-
-            {#if butler.description}
-              <p class="text-sm text-base-content/60 line-clamp-2">{butler.description}</p>
-            {/if}
-
-            {#if butler.keywords.length > 0}
-              <div class="flex flex-wrap gap-1 mt-1">
-                {#each butler.keywords.slice(0, 4) as kw}
-                  <span class="badge badge-outline badge-xs">{kw}</span>
-                {/each}
-                {#if butler.keywords.length > 4}
-                  <span class="badge badge-ghost badge-xs">+{butler.keywords.length - 4}</span>
-                {/if}
-              </div>
-            {/if}
-
-            <div class="text-xs text-base-content/40 mt-1 flex items-center gap-1.5">
-              <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101"/>
-                <path stroke-linecap="round" stroke-linejoin="round" d="M14.828 14.828a4 4 0 015.656 0l4 4a4 4 0 01-5.656 5.656l-1.1-1.1"/>
+          <!-- Circular avatar -->
+          {#if butler.iconUrl}
+            <img
+              src={butler.iconUrl}
+              alt={butler.name}
+              class="w-16 h-16 rounded-full object-cover shadow-sm border border-base-200"
+            />
+          {:else}
+            <div
+              class="w-16 h-16 rounded-full flex items-center justify-center shadow-sm"
+              style="background-color: {butler.iconColor}22; border: 2px solid {butler.iconColor}50;"
+            >
+              <svg class="w-8 h-8" style="color: {butler.iconColor};" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.5"/>
+                <circle cx="12" cy="2.5" r="0.5" fill="currentColor" stroke="none"/>
+                <rect x="4" y="5.5" width="16" height="11" rx="2"/>
+                <circle cx="9" cy="10.5" r="1.5" fill="currentColor" stroke="none"/>
+                <circle cx="15" cy="10.5" r="1.5" fill="currentColor" stroke="none"/>
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9 14h6"/>
               </svg>
-              {butler.sourceIds.length === 0 ? "全ソース" : `${butler.sourceIds.length} ソース`}
             </div>
+          {/if}
+
+          <!-- Name + badge -->
+          <div class="flex flex-col items-center gap-1 min-w-0 w-full">
+            <span class="font-semibold text-sm leading-snug text-base-content line-clamp-1 w-full">{butler.name}</span>
+            {#if butler.description}
+              <span class="text-xs text-base-content/55 line-clamp-2 w-full">{butler.description}</span>
+            {/if}
+            <span
+              class="badge badge-xs mt-0.5"
+              class:badge-success={butler.isActive}
+              class:badge-ghost={!butler.isActive}
+            >
+              {butler.isActive ? "有効" : "無効"}
+            </span>
           </div>
         </a>
       {/each}
+
+      <!-- 新規作成カード（末尾） -->
+      <button
+        onclick={openCreate}
+        class="flex flex-col items-center justify-center gap-3 p-4 rounded-2xl border-2 border-dashed border-base-300 hover:border-primary/50 hover:bg-base-100 transition-all duration-150 cursor-pointer text-center text-base-content/40 hover:text-primary"
+      >
+        <div class="w-16 h-16 rounded-full bg-base-200 flex items-center justify-center">
+          <svg class="w-7 h-7" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
+          </svg>
+        </div>
+        <span class="font-semibold text-sm">新規作成</span>
+      </button>
     </div>
   {/if}
 </div>
 
-<!-- 新規作成モーダル -->
+<!-- 新規作成モーダル（モバイル: ボトムシート、デスクトップ: センター） -->
 {#if showCreateModal}
-  <dialog class="modal modal-open">
-    <div class="modal-box max-w-sm">
-      <h3 class="font-bold text-lg mb-4">AI執事を作成</h3>
+  <!-- Backdrop -->
+  <div
+    class="fixed inset-0 z-50 bg-black/40 backdrop-blur-[2px]"
+    role="button"
+    tabindex="-1"
+    aria-label="閉じる"
+    onclick={closeCreate}
+    onkeydown={(e) => e.key === 'Escape' && closeCreate()}
+  ></div>
+
+  <!-- Sheet / Dialog -->
+  <div
+    class="fixed z-50 bg-base-100 shadow-xl
+      inset-x-0 bottom-0 rounded-t-3xl pt-5 pb-safe
+      lg:inset-auto lg:top-1/2 lg:left-1/2 lg:-translate-x-1/2 lg:-translate-y-1/2 lg:rounded-2xl lg:w-[420px]"
+    style="transform: translateY({sheetDragY}px); transition: {sheetDragY > 0 ? 'none' : 'transform 0.3s cubic-bezier(0.32,0.72,0,1)'};"
+    ontouchstart={onSheetTouchStart}
+    ontouchmove={onSheetTouchMove}
+    ontouchend={onSheetTouchEnd}
+    role="dialog"
+    aria-modal="true"
+    aria-label="AI執事を作成"
+  >
+    <!-- Pull handle (mobile only) -->
+    <div class="mx-auto w-10 h-1 rounded-full bg-base-300 mb-4 lg:hidden"></div>
+
+    <!-- Header -->
+    <div class="flex items-center justify-between px-5 mb-5">
+      <h3 class="font-bold text-lg">AI執事を作成</h3>
+      <button
+        type="button"
+        class="btn btn-ghost btn-sm btn-circle"
+        onclick={closeCreate}
+        aria-label="閉じる"
+      >
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+
+    <div class="px-5 pb-6">
+      <!-- Avatar upload + color -->
+      <div class="flex flex-col items-center gap-3 mb-5">
+        <input
+          bind:this={fileInputEl}
+          type="file"
+          accept="image/*"
+          class="hidden"
+          onchange={onFileChange}
+        />
+        <button
+          type="button"
+          class="relative group"
+          onclick={() => fileInputEl?.click()}
+          aria-label="アイコン画像を選択"
+        >
+          {#if iconPreviewUrl}
+            <img
+              src={iconPreviewUrl}
+              alt="プレビュー"
+              class="w-20 h-20 rounded-full object-cover shadow-md border-2 border-base-200 group-hover:opacity-80 transition-opacity"
+            />
+          {:else}
+            <div
+              class="w-20 h-20 rounded-full flex items-center justify-center shadow-md group-hover:opacity-80 transition-opacity"
+              style="background-color: {newColor}22; border: 2.5px solid {newColor}50;"
+            >
+              <svg class="w-9 h-9" style="color: {newColor};" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.5"/>
+                <circle cx="12" cy="2.5" r="0.5" fill="currentColor" stroke="none"/>
+                <rect x="4" y="5.5" width="16" height="11" rx="2"/>
+                <circle cx="9" cy="10.5" r="1.5" fill="currentColor" stroke="none"/>
+                <circle cx="15" cy="10.5" r="1.5" fill="currentColor" stroke="none"/>
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9 14h6"/>
+              </svg>
+            </div>
+          {/if}
+          <!-- Upload overlay -->
+          <span class="absolute bottom-0 right-0 w-7 h-7 rounded-full bg-base-100 border border-base-200 shadow-sm flex items-center justify-center text-base-content/70 group-hover:text-primary transition-colors">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/>
+            </svg>
+          </span>
+        </button>
+        <p class="text-xs text-base-content/40">タップして画像を選択</p>
+
+        <!-- Color picker -->
+        <div class="w-full">
+          <p class="text-xs text-base-content/50 text-center mb-2">背景カラー</p>
+          <div class="flex justify-center gap-2">
+            {#each ICON_COLORS as color}
+              <button
+                type="button"
+                class="w-8 h-8 rounded-full transition-all duration-100 flex items-center justify-center shrink-0"
+                style="background-color: {color};"
+                class:ring-2={newColor === color}
+                class:ring-offset-2={newColor === color}
+                class:ring-base-content={newColor === color}
+                onclick={() => (newColor = color)}
+                aria-label="カラー {color}"
+              >
+                {#if newColor === color}
+                  <svg class="w-3.5 h-3.5 text-white drop-shadow" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+                  </svg>
+                {/if}
+              </button>
+            {/each}
+          </div>
+        </div>
+      </div>
+
+      <!-- Form fields -->
       <form
         onsubmit={(e) => { e.preventDefault(); createButler(); }}
         class="flex flex-col gap-3"
       >
         <label class="form-control">
-          <div class="label pb-1"><span class="label-text text-sm">名前 <span class="text-error">*</span></span></div>
+          <div class="label pb-1"><span class="label-text text-sm font-medium">名前 <span class="text-error">*</span></span></div>
           <input
             type="text"
-            class="input input-bordered input-sm"
+            class="input input-bordered rounded-full px-4"
             placeholder="例: テクノロジーニュース"
             bind:value={newName}
             required
           />
         </label>
         <label class="form-control">
-          <div class="label pb-1"><span class="label-text text-sm">説明</span></div>
+          <div class="label pb-1"><span class="label-text text-sm font-medium">説明</span></div>
           <textarea
-            class="textarea textarea-bordered textarea-sm resize-none"
+            class="textarea textarea-bordered rounded-2xl resize-none"
             rows="2"
             placeholder="このAI執事の役割や目的"
             bind:value={newDescription}
           ></textarea>
         </label>
-        <div class="modal-action mt-2">
-          <button
-            type="button"
-            class="btn btn-ghost btn-sm"
-            onclick={() => { showCreateModal = false; newName = ""; newDescription = ""; }}
-          >キャンセル</button>
-          <button
-            type="submit"
-            class="btn btn-primary btn-sm"
-            disabled={creating || !newName.trim()}
-          >
-            {#if creating}
-              <span class="loading loading-spinner loading-xs"></span>
-            {/if}
+
+        <button
+          type="submit"
+          class="btn btn-primary rounded-full w-full mt-1"
+          disabled={creating || !newName.trim()}
+        >
+          {#if creating}
+            <span class="loading loading-spinner loading-sm"></span>
+          {:else}
             作成
-          </button>
-        </div>
+          {/if}
+        </button>
       </form>
     </div>
-    <form method="dialog" class="modal-backdrop">
-      <button onclick={() => { showCreateModal = false; newName = ""; newDescription = ""; }}>close</button>
-    </form>
-  </dialog>
+  </div>
 {/if}
