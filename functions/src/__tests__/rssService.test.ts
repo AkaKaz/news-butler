@@ -109,17 +109,18 @@ describe("fetchFeed", () => {
 });
 
 describe("validateFeedUrl", () => {
-  it("有効な RSS フィードの場合 true を返す", async () => {
-    mockParseURL.mockResolvedValue({items: []});
+  it("有効な RSS フィードの場合 isValid:true とタイトルを返す", async () => {
+    mockParseURL.mockResolvedValue({items: [], title: "Example Feed"});
 
     const result = await validateFeedUrl("https://example.com/feed");
-    expect(result).toBe(true);
+    expect(result.isValid).toBe(true);
+    expect(result.title).toBe("Example Feed");
   });
 
-  it("パースエラーの場合 false を返す", async () => {
+  it("パースエラーの場合 isValid:false を返す", async () => {
     mockParseURL.mockRejectedValue(new Error("Invalid feed"));
 
     const result = await validateFeedUrl("https://invalid-url");
-    expect(result).toBe(false);
+    expect(result.isValid).toBe(false);
   });
 });

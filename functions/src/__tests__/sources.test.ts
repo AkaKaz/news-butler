@@ -23,8 +23,10 @@ beforeEach(() => {
 // --- POST /sources/validate ---
 
 describe("POST /sources/validate", () => {
-  it("有効なRSS URLの場合 ok を返す", async () => {
-    (validateFeedUrl as jest.Mock).mockResolvedValue(true);
+  it("有効なRSS URLの場合 ok とタイトルを返す", async () => {
+    (validateFeedUrl as jest.Mock).mockResolvedValue(
+      {isValid: true, title: "Example Feed"}
+    );
 
     const res = await request(app)
       .post("/sources/validate")
@@ -32,6 +34,7 @@ describe("POST /sources/validate", () => {
 
     expect(res.status).toBe(200);
     expect(res.body.ok).toBe(true);
+    expect(res.body.title).toBe("Example Feed");
   });
 
   it("url が欠けている場合 400 を返す", async () => {
@@ -40,7 +43,9 @@ describe("POST /sources/validate", () => {
   });
 
   it("無効なRSS URLの場合 400 を返す", async () => {
-    (validateFeedUrl as jest.Mock).mockResolvedValue(false);
+    (validateFeedUrl as jest.Mock).mockResolvedValue(
+      {isValid: false, title: ""}
+    );
 
     const res = await request(app)
       .post("/sources/validate")

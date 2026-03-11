@@ -18,7 +18,7 @@ import {
   Timestamp,
 } from "firebase/firestore";
 import { ref as storageRef, uploadBytes, getDownloadURL } from "firebase/storage";
-import { db, storage } from "./firebase";
+import { db, storage, auth } from "./firebase";
 import type { Butler, DigestConfig, Report, Source } from "./types";
 
 const VRT = import.meta.env.VITE_VRT_AUTH_BYPASS === "true";
@@ -301,21 +301,56 @@ export async function getSources(): Promise<Source[]> {
   return snap.docs.map((d) => ({ id: d.id, ...d.data() } as Source));
 }
 
+async function callValidate(url: string): Promise<{ ok: boolean; title: string }> {
+  const token = await auth.currentUser?.getIdToken();
+  const res = await fetch(`${BASE_URL}/api/sources/validate`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+    body: JSON.stringify({ url }),
+  });
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}));
+    throw new Error(body.error ?? `サーバーエラー (${res.status})`);
+  }
+  return res.json();
+}
+
+/** フィードURLからタイトルを取得する */
+export async function fetchFeedMeta(url: string): Promise<{ title: string }> {
+  if (VRT) return { title: "" };
+  const data = await callValidate(url);
+  return { title: data.title };
+}
+
 export async function createSource(
+  butlerId: string,
   data: Pick<Source, "name" | "url" | "category" | "tags">
 ): Promise<Source> {
-  // validateFeedUrl はCORS回避のためFunctions経由
-  const validateRes = await fetch(`${BASE_URL}/sources/validate`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ url: data.url }),
-  });
-  if (!validateRes.ok) {
-    throw new Error("有効な RSS フィード URL ではありません");
+  if (VRT) {
+    const now = Math.floor(Date.now() / 1000);
+    return {
+      id: `src-${Date.now()}`,
+      topicId: butlerId,
+      name: data.name,
+      url: data.url,
+      category: data.category ?? "",
+      tags: data.tags ?? [],
+      isActive: true,
+      fetchIntervalMinutes: 60,
+      lastFetchedAt: null,
+      consecutiveErrors: 0,
+      createdAt: { seconds: now, nanoseconds: 0 },
+      updatedAt: { seconds: now, nanoseconds: 0 },
+    };
   }
+  await callValidate(data.url);
 
   const now = serverTimestamp();
   const ref = await addDoc(collection(db, "sources"), {
+    topicId: butlerId,
     name: data.name,
     url: data.url,
     category: data.category ?? "",
@@ -346,11 +381,7 @@ export async function toggleSource(id: string, isActive: boolean): Promise<void>
 
 export async function deleteSource(id: string): Promise<void> {
   if (VRT) return;
-  // soft delete
-  await updateDoc(doc(db, "sources", id), {
-    isActive: false,
-    updatedAt: serverTimestamp(),
-  });
+  await deleteDoc(doc(db, "sources", id));
 }
 
 // ── Reports ──────────────────────────────────────────────────────────────────
@@ -392,7 +423,7 @@ export async function generateReport(
   from?: string,
   to?: string
 ): Promise<Report> {
-  const res = await fetch(`${BASE_URL}/reports/generate`, {
+  const res = await fetch(`${BASE_URL}/api/reports/generate`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
