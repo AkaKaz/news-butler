@@ -37,28 +37,20 @@
 
     <!-- Active toggle (detail root only) -->
     {#if isDetailRoot}
-      <button
-        type="button"
-        onclick={toggleActive}
-        disabled={toggling}
-        class="pointer-events-auto w-9 h-9 rounded-full shadow-sm border flex items-center justify-center transition-all duration-200
-          {isActive
-            ? 'bg-success border-success text-success-content'
-            : 'bg-base-100/85 backdrop-blur-sm border-base-300 text-base-content/40'}"
-        aria-label={isActive ? "有効（タップで無効化）" : "無効（タップで有効化）"}
-      >
+      <div class="pointer-events-auto flex items-center h-9 px-1">
         {#if toggling}
-          <span class="loading loading-spinner loading-xs"></span>
-        {:else if isActive}
-          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
-          </svg>
+          <span class="loading loading-spinner loading-xs text-base-content/40"></span>
         {:else}
-          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <circle cx="12" cy="12" r="9" stroke-dasharray="4 2"/>
-          </svg>
+          <input
+            type="checkbox"
+            class="toggle toggle-success toggle-sm"
+            checked={isActive}
+            disabled={toggling}
+            onchange={toggleActive}
+            aria-label={isActive ? "有効（タップで無効化）" : "無効（タップで有効化）"}
+          />
         {/if}
-      </button>
+      </div>
     {/if}
   </div>
 
