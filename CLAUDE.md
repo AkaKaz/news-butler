@@ -107,7 +107,9 @@ build_and_preview─┘
 ### VRT（Visual Regression Testing）
 
 - ツール: Playwright + reg-suit + GCS
-- キャプチャページ: `/reports`、`/butlers`
+- キャプチャ対象（`visual.spec.ts`）:
+  - ページ5種: `reports`（`/reports`）、`butlers`（`/butlers`）、`report-detail`（`/reports/rep-1`）、`butler-detail`（`/butlers/mock-1`）、`butler-sources`（`/butlers/mock-1/sources`）
+  - モーダル2種: `butler-create-modal`（新規作成モーダル）、`butler-edit-modal`（編集モーダル）
 - デバイス3種:
   - `desktop`: Desktop Chrome（1280×800）
   - `tablet`: Desktop Chrome（768×1024）
@@ -117,6 +119,8 @@ build_and_preview─┘
 - **ログインバイパス**: VRT ビルド時のみ `VITE_VRT_AUTH_BYPASS=true` をセット
   - `+layout.svelte` でこのフラグを確認し、Firebase Auth 検証をスキップしてアプリ本体を表示
   - 本番ビルド（`build_and_preview` ジョブ）にはこのフラグを渡さない
+  - **`firebase-hosting-merge.yml` の `update_visual_baseline` ジョブにも同フラグが必要**
+    （PR ワークフローと同様に `Build frontend` ステップの `env` に `VITE_VRT_AUTH_BYPASS: true` を含めること）
 
 ### CI 変更時の注意
 
