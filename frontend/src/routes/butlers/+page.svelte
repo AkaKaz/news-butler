@@ -9,6 +9,14 @@
   let showCreateModal = $state(false);
   let creating = $state(false);
 
+  // Swipe-to-close
+  let touchStartY = 0;
+  function onTouchStart(e: TouchEvent) { touchStartY = e.touches[0].clientY; }
+  function onTouchEnd(e: TouchEvent) {
+    const dy = e.changedTouches[0].clientY - touchStartY;
+    if (dy > 80) closeCreate();
+  }
+
   // Form state
   let newName = $state("");
   let newDescription = $state("");
@@ -172,10 +180,13 @@
   ></div>
 
   <!-- Sheet / Dialog -->
-  <div class="fixed z-50 bg-base-100 shadow-xl
-    inset-x-0 bottom-0 rounded-t-3xl pt-5 pb-safe
-    lg:inset-auto lg:top-1/2 lg:left-1/2 lg:-translate-x-1/2 lg:-translate-y-1/2 lg:rounded-2xl lg:w-[420px]">
-
+  <div
+    class="fixed z-50 bg-base-100 shadow-xl
+      inset-x-0 bottom-0 rounded-t-3xl pt-5 pb-safe
+      lg:inset-auto lg:top-1/2 lg:left-1/2 lg:-translate-x-1/2 lg:-translate-y-1/2 lg:rounded-2xl lg:w-[420px]"
+    ontouchstart={onTouchStart}
+    ontouchend={onTouchEnd}
+  >
     <!-- Pull handle (mobile only) -->
     <div class="mx-auto w-10 h-1 rounded-full bg-base-300 mb-4 lg:hidden"></div>
 
@@ -243,11 +254,11 @@
         <!-- Color picker -->
         <div class="w-full">
           <p class="text-xs text-base-content/50 text-center mb-2">背景カラー</p>
-          <div class="flex flex-wrap justify-center gap-2">
+          <div class="flex justify-center gap-2">
             {#each ICON_COLORS as color}
               <button
                 type="button"
-                class="w-7 h-7 rounded-full transition-all duration-100 flex items-center justify-center shrink-0"
+                class="w-8 h-8 rounded-full transition-all duration-100 flex items-center justify-center shrink-0"
                 style="background-color: {color};"
                 class:ring-2={newColor === color}
                 class:ring-offset-2={newColor === color}
@@ -275,7 +286,7 @@
           <div class="label pb-1"><span class="label-text text-sm font-medium">名前 <span class="text-error">*</span></span></div>
           <input
             type="text"
-            class="input input-bordered"
+            class="input input-bordered rounded-full px-4"
             placeholder="例: テクノロジーニュース"
             bind:value={newName}
             required
@@ -284,7 +295,7 @@
         <label class="form-control">
           <div class="label pb-1"><span class="label-text text-sm font-medium">説明</span></div>
           <textarea
-            class="textarea textarea-bordered resize-none"
+            class="textarea textarea-bordered rounded-2xl resize-none"
             rows="2"
             placeholder="このAI執事の役割や目的"
             bind:value={newDescription}
@@ -293,7 +304,7 @@
 
         <button
           type="submit"
-          class="btn btn-primary w-full mt-1"
+          class="btn btn-primary rounded-full w-full mt-1"
           disabled={creating || !newName.trim()}
         >
           {#if creating}
