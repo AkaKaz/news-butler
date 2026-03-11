@@ -482,6 +482,7 @@ jobs:
           VITE_FIREBASE_AUTH_DOMAIN: ${{ vars.VITE_FIREBASE_AUTH_DOMAIN }}
           VITE_FIREBASE_PROJECT_ID:  ${{ vars.VITE_FIREBASE_PROJECT_ID }}
           VITE_FIREBASE_APP_ID:      ${{ vars.VITE_FIREBASE_APP_ID }}
+          VITE_API_BASE_URL:         ${{ vars.VITE_API_BASE_URL }}
 
       - name: Install & build functions
         run: |
@@ -503,8 +504,7 @@ jobs:
           echo "$FIREBASE_SA" > /tmp/sa.json
           GOOGLE_APPLICATION_CREDENTIALS=/tmp/sa.json \
             npx firebase-tools deploy --only functions \
-            --project akanmi-news-butler --non-interactive \
-            || echo "::warning::Functions deploy failed. Enable artifactregistry.googleapis.com in GCP console."
+            --project akanmi-news-butler --non-interactive --force
 
       - name: Register preview domain to Firebase Auth
         env:

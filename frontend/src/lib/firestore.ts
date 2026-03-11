@@ -303,7 +303,7 @@ export async function getSources(): Promise<Source[]> {
 
 async function callValidate(url: string): Promise<{ ok: boolean; title: string }> {
   const token = await auth.currentUser?.getIdToken();
-  const res = await fetch(`${BASE_URL}/api/sources/validate`, {
+  const res = await fetch(`${BASE_URL}/sources/validate`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
@@ -423,7 +423,7 @@ export async function generateReport(
   from?: string,
   to?: string
 ): Promise<Report> {
-  const res = await fetch(`${BASE_URL}/api/reports/generate`, {
+  const res = await fetch(`${BASE_URL}/reports/generate`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
