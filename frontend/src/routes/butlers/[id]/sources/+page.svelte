@@ -14,6 +14,7 @@
 
   let sources = $state<Source[]>([]);
   let loading = $state(true);
+  let loadError = $state<string | null>(null);
 
   // Modal state
   let showModal = $state(false);
@@ -32,8 +33,11 @@
 
   async function loadSources() {
     loading = true;
+    loadError = null;
     try {
       sources = await getSourcesByButler(data.butler.id);
+    } catch (e) {
+      loadError = e instanceof Error ? e.message : "読み込みに失敗しました";
     } finally {
       loading = false;
     }
@@ -149,9 +153,24 @@
 </script>
 
 <!-- ── Page header ─────────────────────────────────────────────────────────── -->
-<div class="px-4 lg:px-6 pt-16 pb-4">
-  <h2 class="text-base font-bold tracking-tight">ニュースソース</h2>
-  <p class="text-xs text-base-content/50 mt-0.5">{data.butler.name}</p>
+<div class="px-4 lg:px-6 pt-16 pb-4 flex items-center justify-between">
+  <div>
+    <h2 class="text-base font-bold tracking-tight">ニュースソース</h2>
+    <p class="text-xs text-base-content/50 mt-0.5">{data.butler.name}</p>
+  </div>
+  {#if !loading}
+    <button
+      type="button"
+      class="btn btn-primary btn-sm rounded-full gap-1"
+      onclick={openCreate}
+      aria-label="ニュースソースを追加"
+    >
+      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+      </svg>
+      追加
+    </button>
+  {/if}
 </div>
 
 <!-- ── Source list ─────────────────────────────────────────────────────────── -->
@@ -161,6 +180,14 @@
       {#each [1, 2, 3] as _}
         <div class="skeleton h-20 w-full rounded-2xl"></div>
       {/each}
+    </div>
+
+  {:else if loadError}
+    <div class="alert alert-error py-2 text-sm">
+      <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126z" />
+      </svg>
+      <span>{loadError}</span>
     </div>
 
   {:else if sources.length === 0}
