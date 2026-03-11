@@ -26,32 +26,12 @@
   let editIconFile = $state<File | null>(null);
   let editIconPreviewUrl = $state<string | null>(null);
   let saving = $state(false);
+  let saveError = $state<string | null>(null);
   let fileInputEl = $state<HTMLInputElement | null>(null);
 
   // Source overflow detection
   let badgeContainerEl = $state<HTMLDivElement | null>(null);
   let hiddenSourceCount = $state(0);
-
-  // Swipe-to-close (finger tracking)
-  let sheetDragY = $state(0);
-  let touchStartY = 0;
-
-  function onSheetTouchStart(e: TouchEvent) {
-    touchStartY = e.touches[0].clientY;
-    sheetDragY = 0;
-  }
-  function onSheetTouchMove(e: TouchEvent) {
-    const dy = e.touches[0].clientY - touchStartY;
-    sheetDragY = Math.max(0, dy);
-  }
-  function onSheetTouchEnd() {
-    if (sheetDragY > 160) {
-      sheetDragY = 0;
-      closeEdit();
-    } else {
-      sheetDragY = 0;
-    }
-  }
 
   async function loadData() {
     const butlerId = butler.id;
@@ -101,7 +81,7 @@
     editIconFile = null;
     if (editIconPreviewUrl) URL.revokeObjectURL(editIconPreviewUrl);
     editIconPreviewUrl = null;
-    sheetDragY = 0;
+    saveError = null;
     showEditModal = true;
   }
 
@@ -121,6 +101,7 @@
     const trimmedName = editName.trim();
     if (!trimmedName) return;
     saving = true;
+    saveError = null;
     try {
       const updates: Partial<Butler> = {
         name: trimmedName,
@@ -134,6 +115,8 @@
       await updateButler(butler.id, updates);
       butler = { ...butler, ...updates };
       closeEdit();
+    } catch (e) {
+      saveError = e instanceof Error ? e.message : "保存に失敗しました";
     } finally {
       saving = false;
     }
@@ -162,18 +145,7 @@
 
 <div class="pb-10">
   <!-- ── Avatar section ──────────────────────────────────────────────────── -->
-  <div class="relative flex flex-col items-center gap-3 pt-8 pb-6 px-4">
-    <!-- Edit button (top-right) -->
-    <button
-      type="button"
-      class="absolute top-4 right-4 btn btn-ghost btn-sm btn-circle"
-      onclick={openEdit}
-      aria-label="編集"
-    >
-      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125"/>
-      </svg>
-    </button>
+  <div class="flex flex-col items-center gap-3 pt-16 pb-6 px-4">
 
     <!-- Avatar -->
     {#if butler.iconUrl}
@@ -207,6 +179,19 @@
     {:else}
       <p class="text-sm text-base-content/30 italic text-center">説明なし</p>
     {/if}
+
+    <!-- Edit button -->
+    <button
+      type="button"
+      onclick={openEdit}
+      class="flex items-center gap-1.5 text-xs text-base-content/40 hover:text-primary transition-colors px-3 py-1.5 rounded-full hover:bg-base-200"
+      aria-label="編集"
+    >
+      <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z"/>
+      </svg>
+      編集
+    </button>
   </div>
 
   <!-- ── News Sources section ───────────────────────────────────────────── -->
@@ -358,10 +343,6 @@
     class="fixed z-50 bg-base-100 shadow-xl
       inset-x-0 bottom-0 rounded-t-3xl pt-5 pb-safe
       lg:inset-auto lg:top-1/2 lg:left-1/2 lg:-translate-x-1/2 lg:-translate-y-1/2 lg:rounded-2xl lg:w-[420px]"
-    style="transform: translateY({sheetDragY}px); transition: {sheetDragY > 0 ? 'none' : 'transform 0.3s cubic-bezier(0.32,0.72,0,1)'};"
-    ontouchstart={onSheetTouchStart}
-    ontouchmove={onSheetTouchMove}
-    ontouchend={onSheetTouchEnd}
     role="dialog"
     aria-modal="true"
     aria-label="AI執事を編集"
@@ -487,6 +468,15 @@
             bind:value={editDescription}
           ></textarea>
         </label>
+
+        {#if saveError}
+          <div class="alert alert-error py-2 text-sm">
+            <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126z"/>
+            </svg>
+            <span>{saveError}</span>
+          </div>
+        {/if}
 
         <button
           type="submit"
