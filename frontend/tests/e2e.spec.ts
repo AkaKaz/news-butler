@@ -196,6 +196,122 @@ test.describe("ニュースソース 編集", () => {
   });
 });
 
+// ── レポート設定一覧 ──────────────────────────────────────────────────────────
+
+test.describe("レポート設定一覧", () => {
+  test("レポート設定一覧が表示される", async ({page}) => {
+    await page.goto("/butlers/mock-1/reports");
+    await expect(page.getByRole("heading", {name: "レポート設定"})).toBeVisible();
+    await expect(page.getByText("デイリーダイジェスト")).toBeVisible();
+    await expect(page.getByText("週次サマリー")).toBeVisible();
+  });
+
+  test("スケジュールが表示される", async ({page}) => {
+    await page.goto("/butlers/mock-1/reports");
+    await expect(page.getByText("毎日 0:00")).toBeVisible();
+  });
+
+  test("ヘッダーの追加ボタンが表示される", async ({page}) => {
+    await page.goto("/butlers/mock-1/reports");
+    await expect(page.getByRole("button", {name: "レポート設定を追加"})).toBeVisible();
+  });
+});
+
+// ── レポート設定 追加 ─────────────────────────────────────────────────────────
+
+test.describe("レポート設定 追加", () => {
+  test("追加ボタンでモーダルが開く", async ({page}) => {
+    await page.goto("/butlers/mock-1/reports");
+    await page.getByRole("button", {name: "レポート設定を追加"}).click();
+    await expect(
+      page.getByRole("dialog", {name: "レポート設定を追加"})
+    ).toBeVisible();
+  });
+
+  test("閉じるボタンでモーダルが閉じる", async ({page}) => {
+    await page.goto("/butlers/mock-1/reports");
+    await page.getByRole("button", {name: "レポート設定を追加"}).click();
+    await page.getByRole("dialog", {name: "レポート設定を追加"}).getByRole("button", {name: "閉じる"}).click();
+    await expect(
+      page.getByRole("dialog", {name: "レポート設定を追加"})
+    ).not.toBeVisible();
+  });
+
+  test("名前またはプロンプトが空のとき追加ボタンが無効", async ({page}) => {
+    await page.goto("/butlers/mock-1/reports");
+    await page.getByRole("button", {name: "レポート設定を追加"}).click();
+    await expect(
+      page.getByRole("button", {name: "追加", exact: true})
+    ).toBeDisabled();
+  });
+
+  test("フォームを送信するとレポート設定が追加される", async ({page}) => {
+    await page.goto("/butlers/mock-1/reports");
+    await page.getByRole("button", {name: "レポート設定を追加"}).click();
+    await page.getByPlaceholder("例: デイリーダイジェスト").fill("新しい設定");
+    await page.getByPlaceholder("ニュースをまとめる際の指示を入力...").fill("まとめてください");
+    await page.getByRole("button", {name: "追加", exact: true}).click();
+    await expect(
+      page.getByRole("dialog", {name: "レポート設定を追加"})
+    ).not.toBeVisible();
+    await expect(page.getByText("新しい設定")).toBeVisible();
+  });
+});
+
+// ── レポート設定 編集 ─────────────────────────────────────────────────────────
+
+test.describe("レポート設定 編集", () => {
+  test("編集ボタンでモーダルが開き既存値が入力される", async ({page}) => {
+    await page.goto("/butlers/mock-1/reports");
+    await page.getByRole("button", {name: "編集"}).first().click();
+    await expect(
+      page.getByRole("dialog", {name: "レポート設定を編集"})
+    ).toBeVisible();
+    await expect(page.getByPlaceholder("例: デイリーダイジェスト")).toHaveValue("デイリーダイジェスト");
+  });
+
+  test("編集モーダルを閉じると変更が破棄される", async ({page}) => {
+    await page.goto("/butlers/mock-1/reports");
+    await page.getByRole("button", {name: "編集"}).first().click();
+    await page.getByPlaceholder("例: デイリーダイジェスト").fill("変更後の名前");
+    await page.getByRole("dialog", {name: "レポート設定を編集"}).getByRole("button", {name: "閉じる"}).click();
+    await expect(page.getByText("デイリーダイジェスト")).toBeVisible();
+    await expect(page.getByText("変更後の名前")).not.toBeVisible();
+  });
+});
+
+// ── レポート設定 トグル・削除 ──────────────────────────────────────────────────
+
+test.describe("レポート設定 トグル・削除", () => {
+  test("トグルで有効・無効を切り替えられる", async ({page}) => {
+    await page.goto("/butlers/mock-1/reports");
+    const toggle = page.getByRole("checkbox").first();
+    await expect(toggle).toBeChecked(); // cfg-1 は isActive: true
+    await toggle.click();
+    await expect(toggle).not.toBeChecked();
+  });
+
+  test("削除ボタンで確認ボタンが表示される", async ({page}) => {
+    await page.goto("/butlers/mock-1/reports");
+    await page.getByRole("button", {name: "削除"}).first().click();
+    await expect(page.getByRole("button", {name: "削除確認"})).toBeVisible();
+  });
+
+  test("削除確認でレポート設定が削除される", async ({page}) => {
+    await page.goto("/butlers/mock-1/reports");
+    await page.getByRole("button", {name: "削除"}).first().click();
+    await page.getByRole("button", {name: "削除確認"}).click();
+    await expect(page.getByText("デイリーダイジェスト")).not.toBeVisible();
+  });
+
+  test("削除キャンセルでレポート設定が残る", async ({page}) => {
+    await page.goto("/butlers/mock-1/reports");
+    await page.getByRole("button", {name: "削除"}).first().click();
+    await page.getByRole("button", {name: "キャンセル"}).click();
+    await expect(page.getByText("デイリーダイジェスト")).toBeVisible();
+  });
+});
+
 // ── ニュースソース トグル・削除 ───────────────────────────────────────────────
 
 test.describe("ニュースソース トグル・削除", () => {
