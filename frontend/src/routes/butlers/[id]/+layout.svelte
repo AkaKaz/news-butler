@@ -22,8 +22,8 @@
 </script>
 
 <div class="relative">
-  <!-- Floating overlay buttons -->
-  <div class="absolute top-3 inset-x-0 z-10 flex items-start justify-between px-3 pointer-events-none">
+  <!-- Floating overlay buttons (mobile only) -->
+  <div class="lg:hidden absolute top-3 inset-x-0 z-10 flex items-start justify-between px-3 pointer-events-none">
     <!-- Back -->
     <a
       href="/butlers"

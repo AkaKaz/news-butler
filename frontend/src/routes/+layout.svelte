@@ -23,6 +23,16 @@
     return 0;
   }
 
+  // butler サブルート判定
+  const butlerIdMatch = $derived(page.url.pathname.match(/^\/butlers\/([^/]+)/));
+  const currentButlerId = $derived(butlerIdMatch ? butlerIdMatch[1] : null);
+
+  function isSubActive(sub: string): boolean {
+    if (!currentButlerId) return false;
+    if (sub === "") return page.url.pathname === `/butlers/${currentButlerId}`;
+    return page.url.pathname.startsWith(`/butlers/${currentButlerId}/${sub}`);
+  }
+
   let touchStartX = 0;
   let touchStartY = 0;
   let pendingNavDir: "forward" | "backward" = "forward";
@@ -123,41 +133,106 @@
       </div>
 
       <!-- Nav Tree -->
-      <ul class="menu menu-md flex-1 px-3 py-4 gap-0.5">
-        <li>
-          <a href="/reports" class:active={isActive("/reports")} class="nav-link">
-            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z"/>
-            </svg>
-            新着
-          </a>
-        </li>
-        <li>
-          <a href="/butlers" class:active={isActive("/butlers")} class="nav-link">
-            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.5"/>
-              <circle cx="12" cy="2.5" r="0.5" fill="currentColor" stroke="none"/>
-              <rect x="4" y="5.5" width="16" height="11" rx="2"/>
-              <circle cx="9" cy="10.5" r="1.5" fill="currentColor" stroke="none"/>
-              <circle cx="15" cy="10.5" r="1.5" fill="currentColor" stroke="none"/>
-              <path stroke-linecap="round" stroke-linejoin="round" d="M9 14h6"/>
-            </svg>
-            AI執事
-          </a>
-        </li>
-      </ul>
+      <nav class="flex-1 overflow-y-auto px-3 py-3">
+        <ul class="menu menu-sm gap-0.5 p-0 w-full">
+          <!-- 新着 -->
+          <li>
+            <a href="/reports" class:active={isActive("/reports")} class="nav-link rounded-lg">
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M19 20H5a2 2 0 01-2-2V6a2 2 0 012-2h10a2 2 0 012 2v1m2 13a2 2 0 01-2-2V7m2 13a2 2 0 002-2V9a2 2 0 00-2-2h-2m-4-3H9M7 16h6M7 8h6v4H7V8z"/>
+              </svg>
+              新着
+            </a>
+          </li>
 
-      <!-- Logout -->
-      <div class="px-3 py-4 border-t border-base-200">
-        <button
-          class="btn btn-ghost btn-sm w-full justify-start gap-2 text-base-content/60 hover:text-base-content"
-          onclick={() => authStore.logout()}
-        >
-          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
-          </svg>
-          ログアウト
-        </button>
+          <!-- AI執事 -->
+          <li>
+            <a href="/butlers" class:active={isActive("/butlers") && !currentButlerId} class="nav-link rounded-lg">
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.5"/>
+                <circle cx="12" cy="2.5" r="0.5" fill="currentColor" stroke="none"/>
+                <rect x="4" y="5.5" width="16" height="11" rx="2"/>
+                <circle cx="9" cy="10.5" r="1.5" fill="currentColor" stroke="none"/>
+                <circle cx="15" cy="10.5" r="1.5" fill="currentColor" stroke="none"/>
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9 14h6"/>
+              </svg>
+              AI執事
+            </a>
+          </li>
+
+          <!-- butler サブナビ (PC: butler選択中のみ表示) -->
+          {#if currentButlerId}
+            <li class="pl-4 mt-0.5">
+              <ul class="menu menu-sm gap-0.5 p-0 w-full">
+                <li>
+                  <a
+                    href="/butlers/{currentButlerId}"
+                    class:active={isSubActive("")}
+                    class="nav-link-sub rounded-lg text-xs"
+                  >
+                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
+                    </svg>
+                    概要
+                  </a>
+                </li>
+                <li>
+                  <a
+                    href="/butlers/{currentButlerId}/reports"
+                    class:active={isSubActive("reports")}
+                    class="nav-link-sub rounded-lg text-xs"
+                  >
+                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                    </svg>
+                    レポート
+                  </a>
+                </li>
+                <li>
+                  <a
+                    href="/butlers/{currentButlerId}/sources"
+                    class:active={isSubActive("sources")}
+                    class="nav-link-sub rounded-lg text-xs"
+                  >
+                    <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M6 5c7.18 0 13 5.82 13 13M6 11a7 7 0 017 7M6 17a1 1 0 110 2 1 1 0 010-2z"/>
+                    </svg>
+                    ソース
+                  </a>
+                </li>
+              </ul>
+            </li>
+          {/if}
+        </ul>
+      </nav>
+
+      <!-- User info + Logout -->
+      <div class="px-3 py-3 border-t border-base-200">
+        {#if authStore.user && !vrtBypass}
+          <div class="flex items-center gap-2.5 px-2 py-2 rounded-lg">
+            {#if authStore.user.photoURL}
+              <img src={authStore.user.photoURL} alt="" class="w-7 h-7 rounded-full shrink-0" referrerpolicy="no-referrer" />
+            {:else}
+              <div class="w-7 h-7 rounded-full bg-primary/20 flex items-center justify-center shrink-0">
+                <span class="text-xs font-bold text-primary">
+                  {(authStore.user.displayName ?? authStore.user.email ?? "?")[0].toUpperCase()}
+                </span>
+              </div>
+            {/if}
+            <span class="flex-1 min-w-0 text-xs font-medium text-base-content/70 truncate">
+              {authStore.user.displayName ?? authStore.user.email}
+            </span>
+            <button
+              class="btn btn-ghost btn-xs btn-circle text-base-content/40 hover:text-base-content shrink-0"
+              onclick={() => authStore.logout()}
+              title="ログアウト"
+            >
+              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+              </svg>
+            </button>
+          </div>
+        {/if}
       </div>
     </aside>
 
@@ -229,7 +304,6 @@
     color: oklch(var(--p));
   }
 
-  /* Swipe indicator dot strip */
   .safe-bottom {
     padding-bottom: env(safe-area-inset-bottom, 0px);
   }
