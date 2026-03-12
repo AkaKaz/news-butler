@@ -28,7 +28,7 @@
     category: string;
   }) {
     await api.post("/api/sources", {
-      name: data.name || data.url,
+      name: data.name,
       url: data.url,
       category: data.category,
     });

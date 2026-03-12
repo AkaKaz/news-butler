@@ -59,3 +59,17 @@ export async function validateFeedUrl(url: string): Promise<boolean> {
     return false;
   }
 }
+
+/**
+ * RSS フィードのタイトルを取得する。
+ * @param {string} url RSS フィード URL
+ * @return {Promise<string|null>} フィードタイトル、取得失敗時は null
+ */
+export async function fetchFeedTitle(url: string): Promise<string | null> {
+  try {
+    const feed = await parser.parseURL(url);
+    return feed.title ?? null;
+  } catch {
+    return null;
+  }
+}

@@ -1,13 +1,32 @@
 import {Router} from "express";
 import {FieldValue, Timestamp} from "firebase-admin/firestore";
 import {db} from "../firebase";
-import {validateFeedUrl} from "../services/rssService";
+import {validateFeedUrl, fetchFeedTitle} from "../services/rssService";
 import {Source} from "../types";
 
 // eslint-disable-next-line new-cap
 export const sourcesRouter = Router();
 
 const COL = "sources";
+
+/** RSS フィード URL のバリデーションとタイトル取得 */
+sourcesRouter.get("/validate", async (req, res, next) => {
+  try {
+    const {url} = req.query as {url?: string};
+    if (!url) {
+      res.status(400).json({error: "url パラメータは必須です"});
+      return;
+    }
+    const title = await fetchFeedTitle(url);
+    if (title === null) {
+      res.status(400).json({error: "有効な RSS フィード URL ではありません"});
+      return;
+    }
+    res.json({title, url});
+  } catch (e) {
+    next(e);
+  }
+});
 
 /** ソース一覧 */
 sourcesRouter.get("/", async (_req, res, next) => {
