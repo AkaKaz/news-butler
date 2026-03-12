@@ -454,7 +454,36 @@ export async function getSourcesByButler(butlerId: string): Promise<Source[]> {
 
 // ── DigestConfigs ─────────────────────────────────────────────────────────────
 
-const MOCK_DIGEST_CONFIGS: DigestConfig[] = [];
+const MOCK_DIGEST_CONFIGS: DigestConfig[] = [
+  {
+    id: "cfg-1",
+    topicId: "mock-1",
+    name: "デイリーダイジェスト",
+    description: "毎朝8時に過去24時間のニュースをまとめる",
+    schedule: "0 8 * * *",
+    promptTemplate: "以下のニュース記事を日本語で簡潔にまとめてください。",
+    periodHours: 24,
+    accentColor: "#6366f1",
+    isActive: true,
+    lastRunAt: { seconds: 1700000000, nanoseconds: 0 },
+    createdAt: { seconds: 1700000000, nanoseconds: 0 },
+    updatedAt: { seconds: 1700000000, nanoseconds: 0 },
+  },
+  {
+    id: "cfg-2",
+    topicId: "mock-1",
+    name: "週次サマリー",
+    description: "毎週月曜日に先週のトレンドをまとめる",
+    schedule: "0 9 * * 1",
+    promptTemplate: "先週のテクノロジートレンドを重要度順に整理してください。",
+    periodHours: 168,
+    accentColor: "#8b5cf6",
+    isActive: false,
+    lastRunAt: null,
+    createdAt: { seconds: 1699950000, nanoseconds: 0 },
+    updatedAt: { seconds: 1699950000, nanoseconds: 0 },
+  },
+];
 
 export async function getDigestConfigs(butlerId: string): Promise<DigestConfig[]> {
   if (VRT) return MOCK_DIGEST_CONFIGS.filter((c) => c.topicId === butlerId);
@@ -466,4 +495,51 @@ export async function getDigestConfigs(butlerId: string): Promise<DigestConfig[]
     )
   );
   return snap.docs.map((d) => ({ id: d.id, ...d.data() } as DigestConfig));
+}
+
+export async function createDigestConfig(
+  butlerId: string,
+  data: Pick<DigestConfig, "name" | "description" | "schedule" | "promptTemplate" | "periodHours" | "accentColor">
+): Promise<DigestConfig> {
+  if (VRT) {
+    const now = Math.floor(Date.now() / 1000);
+    return {
+      id: `cfg-${Date.now()}`,
+      topicId: butlerId,
+      ...data,
+      isActive: true,
+      lastRunAt: null,
+      createdAt: { seconds: now, nanoseconds: 0 },
+      updatedAt: { seconds: now, nanoseconds: 0 },
+    };
+  }
+  const now = serverTimestamp();
+  const ref = await addDoc(collection(db, "digest_configs"), {
+    topicId: butlerId,
+    ...data,
+    isActive: true,
+    lastRunAt: null,
+    createdAt: now,
+    updatedAt: now,
+  });
+  const created = await getDoc(ref);
+  return { id: created.id, ...created.data() } as DigestConfig;
+}
+
+export async function updateDigestConfig(
+  id: string,
+  data: Partial<Omit<DigestConfig, "id" | "createdAt">>
+): Promise<void> {
+  if (VRT) return;
+  await updateDoc(doc(db, "digest_configs", id), { ...data, updatedAt: serverTimestamp() });
+}
+
+export async function toggleDigestConfig(id: string, isActive: boolean): Promise<void> {
+  if (VRT) return;
+  await updateDoc(doc(db, "digest_configs", id), { isActive, updatedAt: serverTimestamp() });
+}
+
+export async function deleteDigestConfig(id: string): Promise<void> {
+  if (VRT) return;
+  await deleteDoc(doc(db, "digest_configs", id));
 }
