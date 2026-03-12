@@ -36,6 +36,12 @@
     return `0 0 ${dom} * *`;
   }
 
+  function freqToPeriodHours(freq: ScheduleFreq): number {
+    if (freq === "weekly") return 168;
+    if (freq === "monthly") return 720;
+    return 24; // daily or none
+  }
+
   function formatSchedule(schedule: string | null): string {
     if (!schedule) return "手動のみ";
     const { freq, dow, dom } = cronToForm(schedule);
@@ -55,7 +61,6 @@
   let formDow = $state(1);   // day of week: 0=日 ... 6=土
   let formDom = $state(1);   // day of month: 1-31
   let formPrompt = $state("");
-  let formPeriodHours = $state(24);
   let formAccentColor = $state(ICON_COLORS[0]);
   let saving = $state(false);
   let saveError = $state<string | null>(null);
@@ -87,7 +92,6 @@
     formDow = 1;
     formDom = 1;
     formPrompt = "";
-    formPeriodHours = 24;
     formAccentColor = ICON_COLORS[0];
     saveError = null;
     showModal = true;
@@ -102,7 +106,6 @@
     formDow = parsed.dow;
     formDom = parsed.dom;
     formPrompt = cfg.promptTemplate;
-    formPeriodHours = cfg.periodHours;
     formAccentColor = cfg.accentColor;
     saveError = null;
     showModal = true;
@@ -122,7 +125,7 @@
         description: formDescription.trim(),
         schedule: formToCron(formFreq, formDow, formDom),
         promptTemplate: prompt,
-        periodHours: formPeriodHours,
+        periodHours: freqToPeriodHours(formFreq),
         accentColor: formAccentColor,
       };
       if (editing) {
@@ -172,13 +175,6 @@
     return `${Math.floor(diff / 86400)}日前`;
   }
 
-  const PERIOD_OPTIONS = [
-    { value: 6, label: "6時間" },
-    { value: 12, label: "12時間" },
-    { value: 24, label: "24時間（1日）" },
-    { value: 48, label: "48時間（2日）" },
-    { value: 168, label: "168時間（1週間）" },
-  ];
 </script>
 
 <!-- ── Page header ──────────────────────────────────────────────────────────── -->
@@ -430,18 +426,6 @@
           placeholder="例: 毎朝8時に過去24時間のニュースをまとめる"
           bind:value={formDescription}
         />
-      </label>
-
-      <!-- Period -->
-      <label class="form-control">
-        <div class="label pb-1">
-          <span class="label-text text-sm font-medium">集計期間 <span class="text-error">*</span></span>
-        </div>
-        <select class="select select-bordered rounded-full px-4" bind:value={formPeriodHours}>
-          {#each PERIOD_OPTIONS as opt}
-            <option value={opt.value}>{opt.label}</option>
-          {/each}
-        </select>
       </label>
 
       <!-- Schedule frequency -->
