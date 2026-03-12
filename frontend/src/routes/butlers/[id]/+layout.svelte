@@ -22,8 +22,8 @@
 </script>
 
 <div class="relative">
-  <!-- Back button: mobile only (PC uses sidebar nav) -->
-  <div class="lg:hidden absolute top-3 left-3 z-10 pointer-events-none">
+  <!-- Back button -->
+  <div class="absolute top-3 left-3 z-10 pointer-events-none">
     <a
       href="/butlers"
       class="pointer-events-auto w-9 h-9 rounded-full bg-base-100/85 backdrop-blur-sm shadow-sm border border-base-200 flex items-center justify-center text-base-content/70 hover:text-base-content transition-colors"
