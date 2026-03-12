@@ -16,11 +16,12 @@ async function waitForContent(page: import("@playwright/test").Page) {
 }
 
 const pages = [
-  {name: "reports",        path: "/reports"},
-  {name: "butlers",        path: "/butlers"},
-  {name: "report-detail",  path: "/reports/rep-1"},
-  {name: "butler-detail",  path: "/butlers/mock-1"},
-  {name: "butler-sources", path: "/butlers/mock-1/sources"},
+  {name: "reports",          path: "/reports"},
+  {name: "butlers",          path: "/butlers"},
+  {name: "report-detail",    path: "/reports/rep-1"},
+  {name: "butler-detail",    path: "/butlers/mock-1"},
+  {name: "butler-sources",   path: "/butlers/mock-1/sources"},
+  {name: "butler-reports",   path: "/butlers/mock-1/reports"},
 ];
 
 for (const {name, path} of pages) {
@@ -75,6 +76,28 @@ test("source-edit-modal screenshot", async ({page}, testInfo) => {
   await page.waitForSelector('[role="dialog"][aria-label="ニュースソースを編集"]', {state: "visible"});
   await page.screenshot({
     path: `${snapshotDir}/source-edit-modal-${testInfo.project.name}.png`,
+    fullPage: true,
+  });
+});
+
+test("report-config-add-modal screenshot", async ({page}, testInfo) => {
+  await page.goto("/butlers/mock-1/reports");
+  await waitForContent(page);
+  await page.click('[aria-label="レポート設定を追加"]');
+  await page.waitForSelector('[role="dialog"][aria-label="レポート設定を追加"]', {state: "visible"});
+  await page.screenshot({
+    path: `${snapshotDir}/report-config-add-modal-${testInfo.project.name}.png`,
+    fullPage: true,
+  });
+});
+
+test("report-config-edit-modal screenshot", async ({page}, testInfo) => {
+  await page.goto("/butlers/mock-1/reports");
+  await waitForContent(page);
+  await page.getByRole("button", {name: "編集"}).first().click();
+  await page.waitForSelector('[role="dialog"][aria-label="レポート設定を編集"]', {state: "visible"});
+  await page.screenshot({
+    path: `${snapshotDir}/report-config-edit-modal-${testInfo.project.name}.png`,
     fullPage: true,
   });
 });

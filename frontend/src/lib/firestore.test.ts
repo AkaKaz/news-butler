@@ -35,6 +35,11 @@ const {
   toggleSource,
   deleteSource,
   fetchFeedMeta,
+  getDigestConfigs,
+  createDigestConfig,
+  updateDigestConfig,
+  toggleDigestConfig,
+  deleteDigestConfig,
 } = await import("./firestore");
 
 describe("getSourcesByButler (VRT mode)", () => {
@@ -113,5 +118,94 @@ describe("toggleSource (VRT mode)", () => {
 describe("deleteSource (VRT mode)", () => {
   it("エラーなく完了する", async () => {
     await expect(deleteSource("src-1")).resolves.toBeUndefined();
+  });
+});
+
+// ── DigestConfigs ──────────────────────────────────────────────────────────────
+
+describe("getDigestConfigs (VRT mode)", () => {
+  it("mock-1 のdigest_configsを返す", async () => {
+    const configs = await getDigestConfigs("mock-1");
+    expect(configs.length).toBeGreaterThan(0);
+    expect(configs.every((c) => c.topicId === "mock-1")).toBe(true);
+  });
+
+  it("存在しないbutlerIdは空配列を返す", async () => {
+    const configs = await getDigestConfigs("nonexistent");
+    expect(configs).toEqual([]);
+  });
+
+  it("返されるconfigはDigestConfigの必須フィールドを持つ", async () => {
+    const configs = await getDigestConfigs("mock-1");
+    for (const c of configs) {
+      expect(c).toHaveProperty("id");
+      expect(c).toHaveProperty("topicId");
+      expect(c).toHaveProperty("name");
+      expect(c).toHaveProperty("schedule");
+      expect(c).toHaveProperty("promptTemplate");
+      expect(c).toHaveProperty("periodHours");
+      expect(c).toHaveProperty("isActive");
+    }
+  });
+});
+
+describe("createDigestConfig (VRT mode)", () => {
+  it("新しいconfigを返す", async () => {
+    const config = await createDigestConfig("mock-1", {
+      name: "テスト設定",
+      description: "説明",
+      schedule: "0 0 * * *",
+      promptTemplate: "まとめてください",
+      periodHours: 24,
+      accentColor: "#6366f1",
+    });
+    expect(config.name).toBe("テスト設定");
+    expect(config.topicId).toBe("mock-1");
+    expect(config.isActive).toBe(true);
+    expect(config.lastRunAt).toBeNull();
+  });
+
+  it("idが付与される", async () => {
+    const config = await createDigestConfig("mock-1", {
+      name: "設定",
+      description: "",
+      schedule: null,
+      promptTemplate: "prompt",
+      periodHours: 24,
+      accentColor: "#6366f1",
+    });
+    expect(config.id).toBeTruthy();
+  });
+
+  it("scheduleにnullを渡せる（手動のみ）", async () => {
+    const config = await createDigestConfig("mock-1", {
+      name: "手動設定",
+      description: "",
+      schedule: null,
+      promptTemplate: "prompt",
+      periodHours: 24,
+      accentColor: "#6366f1",
+    });
+    expect(config.schedule).toBeNull();
+  });
+});
+
+describe("updateDigestConfig (VRT mode)", () => {
+  it("エラーなく完了する", async () => {
+    await expect(
+      updateDigestConfig("cfg-1", {name: "更新後"})
+    ).resolves.toBeUndefined();
+  });
+});
+
+describe("toggleDigestConfig (VRT mode)", () => {
+  it("エラーなく完了する", async () => {
+    await expect(toggleDigestConfig("cfg-1", false)).resolves.toBeUndefined();
+  });
+});
+
+describe("deleteDigestConfig (VRT mode)", () => {
+  it("エラーなく完了する", async () => {
+    await expect(deleteDigestConfig("cfg-1")).resolves.toBeUndefined();
   });
 });
