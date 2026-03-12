@@ -22,9 +22,8 @@
 </script>
 
 <div class="relative">
-  <!-- Floating overlay buttons (mobile only) -->
-  <div class="lg:hidden absolute top-3 inset-x-0 z-10 flex items-start justify-between px-3 pointer-events-none">
-    <!-- Back -->
+  <!-- Back button: mobile only (PC uses sidebar nav) -->
+  <div class="lg:hidden absolute top-3 left-3 z-10 pointer-events-none">
     <a
       href="/butlers"
       class="pointer-events-auto w-9 h-9 rounded-full bg-base-100/85 backdrop-blur-sm shadow-sm border border-base-200 flex items-center justify-center text-base-content/70 hover:text-base-content transition-colors"
@@ -34,25 +33,25 @@
         <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/>
       </svg>
     </a>
-
-    <!-- Active toggle (detail root only) -->
-    {#if isDetailRoot}
-      <div class="pointer-events-auto flex items-center h-9 px-1">
-        {#if toggling}
-          <span class="loading loading-spinner loading-xs text-base-content/40"></span>
-        {:else}
-          <input
-            type="checkbox"
-            class="toggle toggle-success toggle-sm"
-            checked={isActive}
-            disabled={toggling}
-            onchange={toggleActive}
-            aria-label={isActive ? "有効（タップで無効化）" : "無効（タップで有効化）"}
-          />
-        {/if}
-      </div>
-    {/if}
   </div>
+
+  <!-- Active toggle: always visible (mobile: top-right overlay, PC: top-right) -->
+  {#if isDetailRoot}
+    <div class="absolute top-3 right-3 z-10">
+      {#if toggling}
+        <span class="loading loading-spinner loading-xs text-base-content/40"></span>
+      {:else}
+        <input
+          type="checkbox"
+          class="toggle toggle-success toggle-sm"
+          checked={isActive}
+          disabled={toggling}
+          onchange={toggleActive}
+          aria-label={isActive ? "有効（タップで無効化）" : "無効（タップで有効化）"}
+        />
+      {/if}
+    </div>
+  {/if}
 
   {@render children()}
 </div>

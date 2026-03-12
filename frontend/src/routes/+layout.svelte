@@ -238,11 +238,13 @@
 
     <!-- ── Main content ── -->
     <main
-      class="flex-1 overflow-y-auto pb-20 lg:pb-0"
+      class="flex-1 overflow-y-auto pb-20 lg:pb-0 lg:bg-base-200"
       ontouchstart={handleTouchStart}
       ontouchend={handleTouchEnd}
     >
-      {@render children()}
+      <div class="lg:max-w-4xl lg:mx-auto lg:my-4 lg:rounded-2xl lg:overflow-hidden lg:shadow-sm lg:bg-base-100 min-h-full">
+        {@render children()}
+      </div>
     </main>
 
     <!-- ── Bottom tab bar: mobile only ── -->
