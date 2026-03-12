@@ -56,3 +56,25 @@ test("butler-edit-modal screenshot", async ({page}, testInfo) => {
     fullPage: true,
   });
 });
+
+test("source-add-modal screenshot", async ({page}, testInfo) => {
+  await page.goto("/butlers/mock-1/sources");
+  await waitForContent(page);
+  await page.click('[aria-label="ニュースソースを追加"]');
+  await page.waitForSelector('[role="dialog"][aria-label="ニュースソースを追加"]', {state: "visible"});
+  await page.screenshot({
+    path: `${snapshotDir}/source-add-modal-${testInfo.project.name}.png`,
+    fullPage: true,
+  });
+});
+
+test("source-edit-modal screenshot", async ({page}, testInfo) => {
+  await page.goto("/butlers/mock-1/sources");
+  await waitForContent(page);
+  await page.getByRole("button", {name: "編集"}).first().click();
+  await page.waitForSelector('[role="dialog"][aria-label="ニュースソースを編集"]', {state: "visible"});
+  await page.screenshot({
+    path: `${snapshotDir}/source-edit-modal-${testInfo.project.name}.png`,
+    fullPage: true,
+  });
+});

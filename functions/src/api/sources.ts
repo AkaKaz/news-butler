@@ -12,12 +12,12 @@ sourcesRouter.post("/validate", async (req, res, next) => {
       res.status(400).json({error: "url は必須です"});
       return;
     }
-    const isValid = await validateFeedUrl(url);
+    const {isValid, title} = await validateFeedUrl(url);
     if (!isValid) {
       res.status(400).json({error: "有効な RSS フィード URL ではありません"});
       return;
     }
-    res.json({ok: true});
+    res.json({ok: true, title});
   } catch (e) {
     next(e);
   }

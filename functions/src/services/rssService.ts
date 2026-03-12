@@ -47,15 +47,17 @@ export async function fetchFeed(
 }
 
 /**
- * URL が有効な RSS フィードかどうかを検証する。
+ * URL が有効な RSS フィードかどうかを検証し、タイトルを返す。
  * @param {string} url 検証する URL
- * @return {Promise<boolean>} 有効な RSS フィードなら true
+ * @return {Promise<{isValid: boolean, title: string}>}
  */
-export async function validateFeedUrl(url: string): Promise<boolean> {
+export async function validateFeedUrl(
+  url: string
+): Promise<{isValid: boolean; title: string}> {
   try {
     const feed = await parser.parseURL(url);
-    return Array.isArray(feed.items);
+    return {isValid: Array.isArray(feed.items), title: feed.title ?? ""};
   } catch {
-    return false;
+    return {isValid: false, title: ""};
   }
 }
