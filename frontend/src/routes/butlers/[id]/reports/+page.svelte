@@ -16,13 +16,44 @@
   let loading = $state(true);
   let loadError = $state<string | null>(null);
 
+  // Schedule helpers
+  type ScheduleFreq = "none" | "daily" | "weekly" | "monthly";
+
+  function cronToForm(cron: string | null): { freq: ScheduleFreq; dow: number; dom: number } {
+    if (!cron) return { freq: "none", dow: 1, dom: 1 };
+    const parts = cron.trim().split(/\s+/);
+    if (parts.length !== 5) return { freq: "none", dow: 1, dom: 1 };
+    const [, , dom, , dow] = parts;
+    if (dom !== "*") return { freq: "monthly", dow: 1, dom: parseInt(dom) || 1 };
+    if (dow !== "*") return { freq: "weekly", dow: parseInt(dow) ?? 1, dom: 1 };
+    return { freq: "daily", dow: 1, dom: 1 };
+  }
+
+  function formToCron(freq: ScheduleFreq, dow: number, dom: number): string | null {
+    if (freq === "none") return null;
+    if (freq === "daily") return "0 0 * * *";
+    if (freq === "weekly") return `0 0 * * ${dow}`;
+    return `0 0 ${dom} * *`;
+  }
+
+  function formatSchedule(schedule: string | null): string {
+    if (!schedule) return "手動のみ";
+    const { freq, dow, dom } = cronToForm(schedule);
+    const days = ["日", "月", "火", "水", "木", "金", "土"];
+    if (freq === "daily") return "毎日 0:00";
+    if (freq === "weekly") return `毎週${days[dow] ?? ""}曜 0:00`;
+    if (freq === "monthly") return `毎月${dom}日 0:00`;
+    return schedule;
+  }
+
   // Modal state
   let showModal = $state(false);
   let editing = $state<DigestConfig | null>(null);
   let formName = $state("");
   let formDescription = $state("");
-  let formScheduleEnabled = $state(false);
-  let formSchedule = $state("0 8 * * *");
+  let formFreq = $state<ScheduleFreq>("none");
+  let formDow = $state(1);   // day of week: 0=日 ... 6=土
+  let formDom = $state(1);   // day of month: 1-31
   let formPrompt = $state("");
   let formPeriodHours = $state(24);
   let formAccentColor = $state(ICON_COLORS[0]);
@@ -52,8 +83,9 @@
     editing = null;
     formName = "";
     formDescription = "";
-    formScheduleEnabled = false;
-    formSchedule = "0 8 * * *";
+    formFreq = "none";
+    formDow = 1;
+    formDom = 1;
     formPrompt = "";
     formPeriodHours = 24;
     formAccentColor = ICON_COLORS[0];
@@ -65,8 +97,10 @@
     editing = cfg;
     formName = cfg.name;
     formDescription = cfg.description;
-    formScheduleEnabled = cfg.schedule !== null;
-    formSchedule = cfg.schedule ?? "0 8 * * *";
+    const parsed = cronToForm(cfg.schedule);
+    formFreq = parsed.freq;
+    formDow = parsed.dow;
+    formDom = parsed.dom;
     formPrompt = cfg.promptTemplate;
     formPeriodHours = cfg.periodHours;
     formAccentColor = cfg.accentColor;
@@ -86,7 +120,7 @@
       const payload = {
         name,
         description: formDescription.trim(),
-        schedule: formScheduleEnabled ? formSchedule.trim() : null,
+        schedule: formToCron(formFreq, formDow, formDom),
         promptTemplate: prompt,
         periodHours: formPeriodHours,
         accentColor: formAccentColor,
@@ -136,19 +170,6 @@
     if (diff < 3600) return `${Math.floor(diff / 60)}分前`;
     if (diff < 86400) return `${Math.floor(diff / 3600)}時間前`;
     return `${Math.floor(diff / 86400)}日前`;
-  }
-
-  function formatSchedule(schedule: string | null): string {
-    if (!schedule) return "手動のみ";
-    const parts = schedule.trim().split(/\s+/);
-    if (parts.length !== 5) return schedule;
-    const [min, hour, , , dow] = parts;
-    if (dow !== "*") {
-      const days = ["日", "月", "火", "水", "木", "金", "土"];
-      const d = parseInt(dow);
-      return `毎週${days[d] ?? dow}曜 ${hour}:${min.padStart(2, "0")}`;
-    }
-    return `毎日 ${hour}:${min.padStart(2, "0")}`;
   }
 
   const PERIOD_OPTIONS = [
@@ -423,32 +444,50 @@
         </select>
       </label>
 
-      <!-- Schedule toggle -->
-      <div class="flex items-center gap-3">
-        <input
-          type="checkbox"
-          class="toggle toggle-primary toggle-sm"
-          id="schedule-toggle"
-          bind:checked={formScheduleEnabled}
-        />
-        <label for="schedule-toggle" class="text-sm font-medium cursor-pointer">
-          スケジュール実行
-        </label>
+      <!-- Schedule frequency -->
+      <div class="form-control">
+        <div class="label pb-2">
+          <span class="label-text text-sm font-medium">実行頻度</span>
+          <span class="label-text-alt text-xs text-base-content/40">0:00にキューイング</span>
+        </div>
+        <div class="grid grid-cols-4 gap-1">
+          {#each ([["none", "手動のみ"], ["daily", "毎日"], ["weekly", "毎週"], ["monthly", "毎月"]] as const) as [val, label]}
+            <button
+              type="button"
+              class="btn btn-sm rounded-full {formFreq === val ? 'btn-primary' : 'btn-ghost border border-base-300'}"
+              onclick={() => (formFreq = val)}
+            >{label}</button>
+          {/each}
+        </div>
       </div>
 
-      {#if formScheduleEnabled}
+      {#if formFreq === "weekly"}
+        <div class="form-control">
+          <div class="label pb-2">
+            <span class="label-text text-sm font-medium">曜日</span>
+          </div>
+          <div class="grid grid-cols-7 gap-1">
+            {#each (["日", "月", "火", "水", "木", "金", "土"] as const) as day, i}
+              <button
+                type="button"
+                class="btn btn-sm rounded-full {formDow === i ? 'btn-primary' : 'btn-ghost border border-base-300'}"
+                onclick={() => (formDow = i)}
+              >{day}</button>
+            {/each}
+          </div>
+        </div>
+      {/if}
+
+      {#if formFreq === "monthly"}
         <label class="form-control">
           <div class="label pb-1">
-            <span class="label-text text-sm font-medium">Cron 式 <span class="text-error">*</span></span>
-            <span class="label-text-alt text-xs text-base-content/40">例: 0 8 * * * (毎日8時)</span>
+            <span class="label-text text-sm font-medium">日</span>
           </div>
-          <input
-            type="text"
-            class="input input-bordered rounded-full px-4 font-mono text-sm"
-            placeholder="0 8 * * *"
-            bind:value={formSchedule}
-            required={formScheduleEnabled}
-          />
+          <select class="select select-bordered rounded-full px-4" bind:value={formDom}>
+            {#each Array.from({ length: 28 }, (_, i) => i + 1) as d}
+              <option value={d}>{d}日</option>
+            {/each}
+          </select>
         </label>
       {/if}
 

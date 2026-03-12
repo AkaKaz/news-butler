@@ -24,6 +24,11 @@ service cloud.firestore {
       allow write: if false; // Functions (Admin SDK) のみ書き込み可
     }
 
+    // レポート設定 (digest_configsコレクション)
+    match /digest_configs/{id} {
+      allow read, write: if isAuthenticated();
+    }
+
     // 記事 - フェッチはFunctionsが行うため読み取りのみ
     match /articles/{id} {
       allow read: if isAuthenticated();
