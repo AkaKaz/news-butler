@@ -5,6 +5,10 @@
     updateButler,
     uploadButlerIcon,
     deleteButler,
+    createDigestConfig,
+    updateDigestConfig,
+    toggleDigestConfig,
+    deleteDigestConfig,
   } from "$lib/firestore";
   import { goto } from "$app/navigation";
   import { ICON_COLORS } from "$lib/types";
@@ -141,24 +145,135 @@
     }
   }
 
-  function cronLabel(schedule: string | null): string {
-    if (!schedule) return "手動のみ";
-    const parts = schedule.trim().split(/\s+/);
-    if (parts.length < 5) return schedule;
-    const [min, hour, , , dow] = parts;
-    const h = hour.padStart(2, "0");
-    const m = min.padStart(2, "0");
-    const time = `${h}:${m}`;
-    if (dow === "*") return `毎日 ${time}`;
-    const days: Record<string, string> = { "0": "日", "1": "月", "2": "火", "3": "水", "4": "木", "5": "金", "6": "土" };
-    return `毎週${days[dow] ?? dow}曜 ${time}`;
+  // ── Schedule helpers ────────────────────────────────────────────────────────
+  type ScheduleFreq = "none" | "daily" | "weekly" | "monthly";
+
+  function cronToForm(cron: string | null): { freq: ScheduleFreq; dow: number; dom: number } {
+    if (!cron) return { freq: "none", dow: 1, dom: 1 };
+    const parts = cron.trim().split(/\s+/);
+    if (parts.length !== 5) return { freq: "none", dow: 1, dom: 1 };
+    const [, , dom, , dow] = parts;
+    if (dom !== "*") return { freq: "monthly", dow: 1, dom: parseInt(dom) || 1 };
+    if (dow !== "*") return { freq: "weekly", dow: parseInt(dow) ?? 1, dom: 1 };
+    return { freq: "daily", dow: 1, dom: 1 };
   }
 
-  function periodLabel(hours: number): string {
-    if (hours < 24) return `${hours}時間分`;
-    if (hours === 24) return "24時間分";
-    const days = hours / 24;
-    return `${days}日間分`;
+  function formToCron(freq: ScheduleFreq, dow: number, dom: number): string | null {
+    if (freq === "none") return null;
+    if (freq === "daily") return "0 0 * * *";
+    if (freq === "weekly") return `0 0 * * ${dow}`;
+    return `0 0 ${dom} * *`;
+  }
+
+  function freqToPeriodHours(freq: ScheduleFreq): number {
+    if (freq === "weekly") return 168;
+    if (freq === "monthly") return 720;
+    return 24;
+  }
+
+  function cronLabel(schedule: string | null): string {
+    if (!schedule) return "手動のみ";
+    const { freq, dow, dom } = cronToForm(schedule);
+    const days = ["日", "月", "火", "水", "木", "金", "土"];
+    if (freq === "daily") return "毎日 0:00";
+    if (freq === "weekly") return `毎週${days[dow] ?? ""}曜 0:00`;
+    if (freq === "monthly") return `毎月${dom}日 0:00`;
+    return schedule;
+  }
+
+  // ── DigestConfig modal state ─────────────────────────────────────────────────
+  let showConfigModal = $state(false);
+  let editingConfig = $state<DigestConfig | null>(null);
+  let cfgName = $state("");
+  let cfgDescription = $state("");
+  let cfgFreq = $state<ScheduleFreq>("none");
+  let cfgDow = $state(1);
+  let cfgDom = $state(1);
+  let cfgPrompt = $state("");
+  let cfgAccentColor = $state(ICON_COLORS[0]);
+  let cfgIsActive = $state(true);
+  let savingCfg = $state(false);
+  let saveConfigError = $state<string | null>(null);
+  let confirmDeleteConfig = $state(false);
+  let deletingCfg = $state(false);
+
+  function openCreateConfig() {
+    editingConfig = null;
+    cfgName = "";
+    cfgDescription = "";
+    cfgFreq = "none";
+    cfgDow = 1;
+    cfgDom = 1;
+    cfgPrompt = "";
+    cfgAccentColor = ICON_COLORS[0];
+    cfgIsActive = true;
+    saveConfigError = null;
+    confirmDeleteConfig = false;
+    showConfigModal = true;
+  }
+
+  function openEditConfig(dc: DigestConfig) {
+    editingConfig = dc;
+    cfgName = dc.name;
+    cfgDescription = dc.description;
+    const parsed = cronToForm(dc.schedule);
+    cfgFreq = parsed.freq;
+    cfgDow = parsed.dow;
+    cfgDom = parsed.dom;
+    cfgPrompt = dc.promptTemplate;
+    cfgAccentColor = dc.accentColor;
+    cfgIsActive = dc.isActive;
+    saveConfigError = null;
+    confirmDeleteConfig = false;
+    showConfigModal = true;
+  }
+
+  function closeConfigModal() { showConfigModal = false; }
+
+  async function saveConfig() {
+    const name = cfgName.trim();
+    const prompt = cfgPrompt.trim();
+    if (!name || !prompt) return;
+    savingCfg = true;
+    saveConfigError = null;
+    try {
+      const payload = {
+        name,
+        description: cfgDescription.trim(),
+        schedule: formToCron(cfgFreq, cfgDow, cfgDom),
+        promptTemplate: prompt,
+        periodHours: freqToPeriodHours(cfgFreq),
+        accentColor: cfgAccentColor,
+      };
+      if (editingConfig) {
+        await updateDigestConfig(editingConfig.id, { ...payload, isActive: cfgIsActive });
+        digestConfigs = digestConfigs.map((c) =>
+          c.id === editingConfig!.id ? { ...c, ...payload, isActive: cfgIsActive } : c
+        );
+      } else {
+        const created = await createDigestConfig(butler.id, payload);
+        digestConfigs = [created, ...digestConfigs];
+      }
+      closeConfigModal();
+    } catch (e) {
+      saveConfigError = e instanceof Error ? e.message : "保存に失敗しました";
+    } finally {
+      savingCfg = false;
+    }
+  }
+
+  async function execDeleteConfig() {
+    if (!editingConfig) return;
+    deletingCfg = true;
+    try {
+      await deleteDigestConfig(editingConfig.id);
+      digestConfigs = digestConfigs.filter((c) => c.id !== editingConfig!.id);
+      closeConfigModal();
+    } catch (e) {
+      saveConfigError = e instanceof Error ? e.message : "削除に失敗しました";
+      deletingCfg = false;
+      confirmDeleteConfig = false;
+    }
   }
 </script>
 
@@ -289,15 +404,19 @@
   <div class="px-4 lg:px-6">
     <div class="flex items-center justify-between mb-3">
       <span class="text-xs font-semibold text-base-content/50 uppercase tracking-wider">レポート設定</span>
-      <a
-        href="/butlers/{butler.id}/reports"
-        class="flex items-center gap-0.5 text-xs text-primary hover:underline"
-      >
-        管理
-        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
-        </svg>
-      </a>
+      {#if !loadingData}
+        <button
+          type="button"
+          onclick={openCreateConfig}
+          class="flex items-center gap-1 text-xs text-primary hover:underline"
+          aria-label="レポート設定を追加"
+        >
+          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
+          </svg>
+          追加
+        </button>
+      {/if}
     </div>
 
     {#if loadingData}
@@ -306,26 +425,25 @@
         <div class="skeleton h-24 w-full rounded-2xl"></div>
       </div>
     {:else if digestConfigs.length === 0}
-      <a
-        href="/butlers/{butler.id}/reports"
-        class="flex flex-col items-center justify-center gap-2 py-8 rounded-2xl border-2 border-dashed border-base-200 text-base-content/40 hover:border-primary/30 hover:text-primary transition-all"
+      <button
+        type="button"
+        onclick={openCreateConfig}
+        class="w-full flex flex-col items-center justify-center gap-2 py-8 rounded-2xl border-2 border-dashed border-base-200 text-base-content/40 hover:border-primary/30 hover:text-primary transition-all"
       >
         <svg class="w-8 h-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
           <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
         </svg>
         <span class="text-sm">レポート設定を追加</span>
-      </a>
+      </button>
     {:else}
       <div class="flex flex-col gap-3">
         {#each digestConfigs as dc (dc.id)}
-          <a
-            href="/butlers/{butler.id}/reports/{dc.id}"
-            class="group rounded-2xl bg-base-100 border border-base-200 overflow-hidden hover:border-base-300 hover:shadow-sm transition-all duration-150"
-          >
+          <div class="rounded-2xl bg-base-100 border border-base-200 overflow-hidden
+                      {dc.isActive ? '' : 'opacity-60'}">
             <!-- Accent color stripe -->
             <div class="h-1.5 w-full" style="background-color: {dc.accentColor};"></div>
 
-            <div class="p-4 flex gap-3">
+            <div class="p-4 flex gap-3 items-center">
               <!-- Color swatch -->
               <div
                 class="w-10 h-10 rounded-xl shrink-0 flex items-center justify-center shadow-sm"
@@ -343,15 +461,25 @@
                 {/if}
                 <div class="flex items-center gap-2 mt-1.5">
                   <span class="badge badge-xs badge-ghost">{cronLabel(dc.schedule)}</span>
-                  <span class="badge badge-xs badge-ghost">{periodLabel(dc.periodHours)}</span>
+                  {#if !dc.isActive}
+                    <span class="badge badge-xs badge-ghost">無効</span>
+                  {/if}
                 </div>
               </div>
 
-              <svg class="w-4 h-4 text-base-content/30 group-hover:text-base-content/60 self-center shrink-0 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/>
-              </svg>
+              <!-- Edit button -->
+              <button
+                type="button"
+                class="btn btn-ghost btn-sm btn-circle text-base-content/40 hover:text-base-content shrink-0"
+                onclick={() => openEditConfig(dc)}
+                aria-label="レポート設定を編集"
+              >
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z"/>
+                </svg>
+              </button>
             </div>
-          </a>
+          </div>
         {/each}
       </div>
     {/if}
@@ -523,6 +651,174 @@
         </button>
       </form>
     </div>
+  </div>
+{/if}
+
+<!-- ── DigestConfig add / edit modal ───────────────────────────────────────── -->
+{#if showConfigModal}
+  <div
+    class="fixed inset-0 z-50 bg-black/40 backdrop-blur-[2px]"
+    role="button"
+    tabindex="-1"
+    aria-label="閉じる"
+    onclick={closeConfigModal}
+    onkeydown={(e) => e.key === "Escape" && closeConfigModal()}
+  ></div>
+
+  <div
+    class="fixed z-50 bg-base-100 shadow-xl
+           inset-x-0 bottom-0 rounded-t-3xl pt-5 pb-safe overflow-y-auto max-h-[90dvh]
+           lg:inset-auto lg:top-1/2 lg:left-1/2
+           lg:-translate-x-1/2 lg:-translate-y-1/2
+           lg:rounded-2xl lg:w-[480px] lg:max-h-[85dvh]"
+    role="dialog"
+    aria-modal="true"
+    aria-label={editingConfig ? "レポート設定を編集" : "レポート設定を追加"}
+  >
+    <div class="mx-auto w-10 h-1 rounded-full bg-base-300 mb-4 lg:hidden"></div>
+
+    <!-- Header -->
+    <div class="flex items-center justify-between px-5 mb-5">
+      <h3 class="font-bold text-lg">
+        {editingConfig ? "レポート設定を編集" : "レポート設定を追加"}
+      </h3>
+      <button type="button" class="btn btn-ghost btn-sm btn-circle" onclick={closeConfigModal} aria-label="閉じる">
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+
+    <form class="px-5 pb-6 flex flex-col gap-4" onsubmit={(e) => { e.preventDefault(); saveConfig(); }}>
+
+      <!-- isActive toggle (編集時のみ) -->
+      {#if editingConfig}
+        <div class="flex items-center justify-between py-2 px-4 rounded-2xl bg-base-200/50">
+          <span class="text-sm font-medium">有効</span>
+          <input
+            type="checkbox"
+            class="toggle toggle-success toggle-sm"
+            bind:checked={cfgIsActive}
+            aria-label="有効・無効"
+          />
+        </div>
+      {/if}
+
+      <!-- Name -->
+      <label class="form-control">
+        <div class="label pb-1"><span class="label-text text-sm font-medium">名前 <span class="text-error">*</span></span></div>
+        <input type="text" class="input input-bordered rounded-full px-4 w-full" placeholder="例: デイリーダイジェスト" bind:value={cfgName} required autofocus />
+      </label>
+
+      <!-- Description -->
+      <label class="form-control">
+        <div class="label pb-1"><span class="label-text text-sm font-medium">説明</span></div>
+        <input type="text" class="input input-bordered rounded-full px-4 w-full" placeholder="例: 毎朝0時に過去24時間のニュースをまとめる" bind:value={cfgDescription} />
+      </label>
+
+      <!-- Schedule frequency -->
+      <div class="form-control">
+        <div class="label pb-2">
+          <span class="label-text text-sm font-medium">実行頻度</span>
+          <span class="label-text-alt text-xs text-base-content/40">0:00にキューイング</span>
+        </div>
+        <div class="grid grid-cols-4 gap-1">
+          {#each ([["none", "手動のみ"], ["daily", "毎日"], ["weekly", "毎週"], ["monthly", "毎月"]] as const) as [val, label]}
+            <button
+              type="button"
+              class="btn btn-sm rounded-full {cfgFreq === val ? 'btn-primary' : 'btn-ghost border border-base-300'}"
+              onclick={() => (cfgFreq = val)}
+            >{label}</button>
+          {/each}
+        </div>
+      </div>
+
+      {#if cfgFreq === "weekly"}
+        <div class="form-control">
+          <div class="label pb-2"><span class="label-text text-sm font-medium">曜日</span></div>
+          <div class="grid grid-cols-7 gap-1">
+            {#each (["日", "月", "火", "水", "木", "金", "土"] as const) as day, i}
+              <button type="button"
+                class="btn btn-sm rounded-full {cfgDow === i ? 'btn-primary' : 'btn-ghost border border-base-300'}"
+                onclick={() => (cfgDow = i)}
+              >{day}</button>
+            {/each}
+          </div>
+        </div>
+      {/if}
+
+      {#if cfgFreq === "monthly"}
+        <label class="form-control">
+          <div class="label pb-1"><span class="label-text text-sm font-medium">日</span></div>
+          <select class="select select-bordered rounded-full px-4 w-full" bind:value={cfgDom}>
+            {#each Array.from({ length: 28 }, (_, i) => i + 1) as d}
+              <option value={d}>{d}日</option>
+            {/each}
+          </select>
+        </label>
+      {/if}
+
+      <!-- Prompt template -->
+      <label class="form-control">
+        <div class="label pb-1"><span class="label-text text-sm font-medium">プロンプトテンプレート <span class="text-error">*</span></span></div>
+        <textarea class="textarea textarea-bordered rounded-2xl px-4 min-h-[100px] resize-none w-full" placeholder="ニュースをまとめる際の指示を入力..." bind:value={cfgPrompt} required></textarea>
+      </label>
+
+      <!-- Accent color -->
+      <div class="form-control">
+        <div class="label pb-2"><span class="label-text text-sm font-medium">アクセントカラー</span></div>
+        <div class="flex gap-2 flex-wrap">
+          {#each ICON_COLORS as color}
+            <button
+              type="button"
+              class="w-7 h-7 rounded-full border-2 transition-all"
+              class:border-base-content={cfgAccentColor === color}
+              class:border-transparent={cfgAccentColor !== color}
+              class:scale-110={cfgAccentColor === color}
+              style="background-color: {color};"
+              onclick={() => (cfgAccentColor = color)}
+              aria-label={color}
+            ></button>
+          {/each}
+        </div>
+      </div>
+
+      {#if saveConfigError}
+        <div class="alert alert-error py-2 text-sm">
+          <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126z"/>
+          </svg>
+          <span>{saveConfigError}</span>
+        </div>
+      {/if}
+
+      <button type="submit" class="btn btn-primary rounded-full w-full" disabled={savingCfg || !cfgName.trim() || !cfgPrompt.trim()}>
+        {#if savingCfg}
+          <span class="loading loading-spinner loading-sm"></span>
+        {:else}
+          {editingConfig ? "保存" : "追加"}
+        {/if}
+      </button>
+
+      <!-- Delete (編集時のみ) -->
+      {#if editingConfig}
+        <div class="border-t border-base-200 pt-4 mt-1">
+          {#if confirmDeleteConfig}
+            <p class="text-sm text-center text-base-content/60 mb-3">本当に削除しますか？この操作は取り消せません。</p>
+            <div class="flex gap-2">
+              <button type="button" class="btn btn-ghost rounded-full flex-1" onclick={() => (confirmDeleteConfig = false)} disabled={deletingCfg}>キャンセル</button>
+              <button type="button" class="btn btn-error rounded-full flex-1" onclick={execDeleteConfig} disabled={deletingCfg}>
+                {#if deletingCfg}<span class="loading loading-spinner loading-sm"></span>{:else}削除する{/if}
+              </button>
+            </div>
+          {:else}
+            <button type="button" class="btn btn-ghost rounded-full w-full text-error hover:bg-error/10" onclick={() => (confirmDeleteConfig = true)}>
+              削除
+            </button>
+          {/if}
+        </div>
+      {/if}
+    </form>
   </div>
 {/if}
 
