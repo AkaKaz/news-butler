@@ -481,7 +481,7 @@
           <span class="label-text text-sm font-medium">プロンプトテンプレート <span class="text-error">*</span></span>
         </div>
         <textarea
-          class="textarea textarea-bordered rounded-2xl px-4 text-sm min-h-[100px] resize-none"
+          class="textarea textarea-bordered rounded-2xl px-4 min-h-[100px] resize-none"
           placeholder="ニュースをまとめる際の指示を入力..."
           bind:value={formPrompt}
           required

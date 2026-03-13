@@ -447,10 +447,10 @@
             RSS / Atom フィード URL <span class="text-error">*</span>
           </span>
         </div>
-        <div class="relative">
+        <div class="relative w-full">
           <input
             type="url"
-            class="input input-bordered rounded-full px-4 font-mono text-sm w-full
+            class="input input-bordered rounded-full px-4 font-mono w-full
                    {urlError ? 'input-error' : ''}"
             placeholder="https://example.com/feed"
             bind:value={formUrl}
@@ -480,7 +480,7 @@
         </div>
         <input
           type="text"
-          class="input input-bordered rounded-full px-4"
+          class="input input-bordered rounded-full px-4 w-full"
           placeholder="例: TechCrunch Japan"
           bind:value={formName}
           required
