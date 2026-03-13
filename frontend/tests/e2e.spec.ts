@@ -202,11 +202,10 @@ test.describe("AI執事 削除", () => {
   test("削除ボタンで確認モーダルが開く", async ({page}) => {
     await page.goto("/butlers/mock-1");
     await page.getByRole("button", {name: "削除"}).click();
-    await expect(
-      page.getByRole("dialog", {name: "AI執事を削除"})
-    ).toBeVisible();
-    await expect(page.getByText("テクノロジーウォッチャー")).toBeVisible();
-    await expect(page.getByText("この操作は取り消せません。")).toBeVisible();
+    const dialog = page.getByRole("dialog", {name: "AI執事を削除"});
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByText("テクノロジーウォッチャー")).toBeVisible();
+    await expect(dialog.getByText("この操作は取り消せません。")).toBeVisible();
   });
 
   test("キャンセルで確認モーダルが閉じる", async ({page}) => {
