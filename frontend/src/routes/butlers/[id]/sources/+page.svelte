@@ -480,7 +480,7 @@
         </div>
         <input
           type="text"
-          class="input input-bordered rounded-full px-4"
+          class="input input-bordered rounded-full px-4 w-full"
           placeholder="例: TechCrunch Japan"
           bind:value={formName}
           required
