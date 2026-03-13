@@ -4,7 +4,9 @@
     getDigestConfigs,
     updateButler,
     uploadButlerIcon,
+    deleteButler,
   } from "$lib/firestore";
+  import { goto } from "$app/navigation";
   import { ICON_COLORS } from "$lib/types";
   import type { Butler, Source, DigestConfig } from "$lib/types";
   import type { PageData } from "./$types";
@@ -17,6 +19,23 @@
   let sources = $state<Source[]>([]);
   let digestConfigs = $state<DigestConfig[]>([]);
   let loadingData = $state(true);
+
+  // Delete state
+  let showDeleteModal = $state(false);
+  let deleting = $state(false);
+  let deleteError = $state<string | null>(null);
+
+  async function execDelete() {
+    deleting = true;
+    deleteError = null;
+    try {
+      await deleteButler(butler.id);
+      await goto("/butlers");
+    } catch (e) {
+      deleteError = e instanceof Error ? e.message : "削除に失敗しました";
+      deleting = false;
+    }
+  }
 
   // Edit modal state
   let showEditModal = $state(false);
@@ -180,18 +199,31 @@
       <p class="text-sm text-base-content/30 italic text-center">説明なし</p>
     {/if}
 
-    <!-- Edit button -->
-    <button
-      type="button"
-      onclick={openEdit}
-      class="flex items-center gap-1.5 text-xs text-base-content/40 hover:text-primary transition-colors px-3 py-1.5 rounded-full hover:bg-base-200"
-      aria-label="編集"
-    >
-      <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z"/>
-      </svg>
-      編集
-    </button>
+    <!-- Edit / Delete buttons -->
+    <div class="flex items-center gap-1">
+      <button
+        type="button"
+        onclick={openEdit}
+        class="flex items-center gap-1.5 text-xs text-base-content/40 hover:text-primary transition-colors px-3 py-1.5 rounded-full hover:bg-base-200"
+        aria-label="編集"
+      >
+        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z"/>
+        </svg>
+        編集
+      </button>
+      <button
+        type="button"
+        onclick={() => { showDeleteModal = true; deleteError = null; }}
+        class="flex items-center gap-1.5 text-xs text-base-content/40 hover:text-error transition-colors px-3 py-1.5 rounded-full hover:bg-base-200"
+        aria-label="削除"
+      >
+        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/>
+        </svg>
+        削除
+      </button>
+    </div>
   </div>
 
   <!-- ── News Sources section ───────────────────────────────────────────── -->
@@ -490,6 +522,79 @@
           {/if}
         </button>
       </form>
+    </div>
+  </div>
+{/if}
+
+<!-- ── Delete confirmation modal ───────────────────────────────────────────── -->
+{#if showDeleteModal}
+  <div
+    class="fixed inset-0 z-50 bg-black/40 backdrop-blur-[2px]"
+    role="button"
+    tabindex="-1"
+    aria-label="閉じる"
+    onclick={() => !deleting && (showDeleteModal = false)}
+    onkeydown={(e) => e.key === "Escape" && !deleting && (showDeleteModal = false)}
+  ></div>
+
+  <div
+    class="fixed z-50 bg-base-100 shadow-xl
+           inset-x-0 bottom-0 rounded-t-3xl pt-5 pb-safe
+           lg:inset-auto lg:top-1/2 lg:left-1/2
+           lg:-translate-x-1/2 lg:-translate-y-1/2
+           lg:rounded-2xl lg:w-[380px]"
+    role="dialog"
+    aria-modal="true"
+    aria-label="AI執事を削除"
+  >
+    <div class="mx-auto w-10 h-1 rounded-full bg-base-300 mb-4 lg:hidden"></div>
+
+    <div class="px-5 pb-6">
+      <!-- Icon -->
+      <div class="flex flex-col items-center gap-3 mb-5 mt-2">
+        <div class="w-14 h-14 rounded-full bg-error/10 flex items-center justify-center">
+          <svg class="w-7 h-7 text-error" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/>
+          </svg>
+        </div>
+        <h3 class="font-bold text-lg">AI執事を削除</h3>
+        <p class="text-sm text-base-content/60 text-center">
+          <span class="font-semibold text-base-content">{butler.name}</span> を削除しますか？<br/>
+          この操作は取り消せません。
+        </p>
+      </div>
+
+      {#if deleteError}
+        <div class="alert alert-error py-2 text-sm mb-3">
+          <svg class="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126z"/>
+          </svg>
+          <span>{deleteError}</span>
+        </div>
+      {/if}
+
+      <div class="flex gap-2">
+        <button
+          type="button"
+          class="btn btn-ghost rounded-full flex-1"
+          onclick={() => (showDeleteModal = false)}
+          disabled={deleting}
+        >
+          キャンセル
+        </button>
+        <button
+          type="button"
+          class="btn btn-error rounded-full flex-1"
+          onclick={execDelete}
+          disabled={deleting}
+        >
+          {#if deleting}
+            <span class="loading loading-spinner loading-sm"></span>
+          {:else}
+            削除する
+          {/if}
+        </button>
+      </div>
     </div>
   </div>
 {/if}
