@@ -447,7 +447,7 @@
             RSS / Atom フィード URL <span class="text-error">*</span>
           </span>
         </div>
-        <div class="relative">
+        <div class="relative w-full">
           <input
             type="url"
             class="input input-bordered rounded-full px-4 font-mono w-full
