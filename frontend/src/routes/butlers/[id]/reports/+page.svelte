@@ -257,7 +257,7 @@
             <div class="flex-1 min-w-0">
               <p class="text-sm font-semibold leading-snug truncate">{cfg.name}</p>
               {#if cfg.description}
-                <p class="text-xs text-base-content/45 truncate mt-0.5">{cfg.description}</p>
+                <p class="text-xs text-base-content/45 line-clamp-2 mt-0.5">{cfg.description}</p>
               {/if}
               <div class="flex items-center gap-2 mt-1 flex-wrap">
                 <span class="badge badge-ghost badge-xs font-mono">
