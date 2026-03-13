@@ -1,9 +1,8 @@
 @import "tailwindcss";
 @plugin "daisyui";
 
-/* iOSでフォームフォーカス時の自動ズームを防ぐ（font-size < 16px が原因） */
-@layer base {
-  input, select, textarea {
-    font-size: 16px;
-  }
+/* iOSでフォームフォーカス時の自動ズームを防ぐ（font-size < 16px が原因）
+   @layer の外に置くことでTailwindのtext-smなどutilityクラスより優先させる */
+input, select, textarea {
+  font-size: 16px;
 }
