@@ -47,6 +47,17 @@ test("butler-create-modal screenshot", async ({page}, testInfo) => {
   });
 });
 
+test("butler-delete-modal screenshot", async ({page}, testInfo) => {
+  await page.goto("/butlers/mock-1");
+  await waitForContent(page);
+  await page.getByRole("button", {name: "削除"}).click();
+  await page.waitForSelector('[role="dialog"][aria-label="AI執事を削除"]', {state: "visible"});
+  await page.screenshot({
+    path: `${snapshotDir}/butler-delete-modal-${testInfo.project.name}.png`,
+    fullPage: true,
+  });
+});
+
 test("butler-edit-modal screenshot", async ({page}, testInfo) => {
   await page.goto("/butlers/mock-1");
   await waitForContent(page);
