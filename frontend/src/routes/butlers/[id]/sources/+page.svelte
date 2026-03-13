@@ -450,7 +450,7 @@
         <div class="relative">
           <input
             type="url"
-            class="input input-bordered rounded-full px-4 font-mono text-sm w-full
+            class="input input-bordered rounded-full px-4 font-mono w-full
                    {urlError ? 'input-error' : ''}"
             placeholder="https://example.com/feed"
             bind:value={formUrl}
