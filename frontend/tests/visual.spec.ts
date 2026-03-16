@@ -21,7 +21,6 @@ const pages = [
   {name: "report-detail",    path: "/reports/rep-1"},
   {name: "butler-detail",    path: "/butlers/mock-1"},
   {name: "butler-sources",   path: "/butlers/mock-1/sources"},
-  {name: "butler-reports",   path: "/butlers/mock-1/reports"},
 ];
 
 for (const {name, path} of pages) {
@@ -92,7 +91,7 @@ test("source-edit-modal screenshot", async ({page}, testInfo) => {
 });
 
 test("report-config-add-modal screenshot", async ({page}, testInfo) => {
-  await page.goto("/butlers/mock-1/reports");
+  await page.goto("/butlers/mock-1");
   await waitForContent(page);
   await page.click('[aria-label="レポート設定を追加"]');
   await page.waitForSelector('[role="dialog"][aria-label="レポート設定を追加"]', {state: "visible"});
@@ -103,9 +102,9 @@ test("report-config-add-modal screenshot", async ({page}, testInfo) => {
 });
 
 test("report-config-edit-modal screenshot", async ({page}, testInfo) => {
-  await page.goto("/butlers/mock-1/reports");
+  await page.goto("/butlers/mock-1");
   await waitForContent(page);
-  await page.getByRole("button", {name: "編集"}).first().click();
+  await page.getByRole("button", {name: "レポート設定を編集"}).first().click();
   await page.waitForSelector('[role="dialog"][aria-label="レポート設定を編集"]', {state: "visible"});
   await page.screenshot({
     path: `${snapshotDir}/report-config-edit-modal-${testInfo.project.name}.png`,
