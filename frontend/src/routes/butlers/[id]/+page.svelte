@@ -689,7 +689,7 @@
       </button>
     </div>
 
-    <form class="px-5 pb-6 flex flex-col gap-4" onsubmit={(e) => { e.preventDefault(); saveConfig(); }}>
+    <form class="px-5 pb-6 flex flex-col gap-4" autocomplete="off" onsubmit={(e) => { e.preventDefault(); saveConfig(); }}>
 
       <!-- isActive toggle (編集時のみ) -->
       {#if editingConfig}
