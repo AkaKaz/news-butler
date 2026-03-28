@@ -707,13 +707,13 @@
       <!-- Name -->
       <label class="form-control">
         <div class="label pb-1"><span class="label-text text-sm font-medium">名前 <span class="text-error">*</span></span></div>
-        <input type="text" class="input input-bordered rounded-full px-4 w-full" placeholder="例: デイリーダイジェスト" bind:value={cfgName} required autofocus autocomplete="off" />
+        <input type="text" class="input input-bordered rounded-full px-4 w-full" placeholder="例: デイリーダイジェスト" bind:value={cfgName} required autofocus autocomplete="new-password" />
       </label>
 
       <!-- Description -->
       <label class="form-control">
         <div class="label pb-1"><span class="label-text text-sm font-medium">説明</span></div>
-        <input type="text" class="input input-bordered rounded-full px-4 w-full" placeholder="例: 毎朝0時に過去24時間のニュースをまとめる" bind:value={cfgDescription} autocomplete="off" />
+        <input type="text" class="input input-bordered rounded-full px-4 w-full" placeholder="例: 毎朝0時に過去24時間のニュースをまとめる" bind:value={cfgDescription} autocomplete="new-password" />
       </label>
 
       <!-- Schedule frequency -->
