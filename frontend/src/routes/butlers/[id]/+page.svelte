@@ -707,13 +707,13 @@
       <!-- Name -->
       <label class="form-control">
         <div class="label pb-1"><span class="label-text text-sm font-medium">名前 <span class="text-error">*</span></span></div>
-        <input type="text" class="input input-bordered rounded-full px-4 w-full" placeholder="例: デイリーダイジェスト" bind:value={cfgName} required autofocus />
+        <input type="text" class="input input-bordered rounded-full px-4 w-full" placeholder="例: デイリーダイジェスト" bind:value={cfgName} required autofocus autocomplete="off" />
       </label>
 
       <!-- Description -->
       <label class="form-control">
         <div class="label pb-1"><span class="label-text text-sm font-medium">説明</span></div>
-        <input type="text" class="input input-bordered rounded-full px-4 w-full" placeholder="例: 毎朝0時に過去24時間のニュースをまとめる" bind:value={cfgDescription} />
+        <input type="text" class="input input-bordered rounded-full px-4 w-full" placeholder="例: 毎朝0時に過去24時間のニュースをまとめる" bind:value={cfgDescription} autocomplete="off" />
       </label>
 
       <!-- Schedule frequency -->
@@ -761,7 +761,7 @@
       <!-- Prompt template -->
       <label class="form-control">
         <div class="label pb-1"><span class="label-text text-sm font-medium">プロンプトテンプレート <span class="text-error">*</span></span></div>
-        <textarea class="textarea textarea-bordered rounded-2xl px-4 min-h-[100px] resize-none w-full" placeholder="ニュースをまとめる際の指示を入力..." bind:value={cfgPrompt} required></textarea>
+        <textarea class="textarea textarea-bordered rounded-2xl px-4 min-h-[100px] resize-none w-full" placeholder="ニュースをまとめる際の指示を入力..." bind:value={cfgPrompt} required autocomplete="off"></textarea>
       </label>
 
       <!-- Accent color -->
