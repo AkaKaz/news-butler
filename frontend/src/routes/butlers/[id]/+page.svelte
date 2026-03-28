@@ -146,26 +146,33 @@
   }
 
   // ── Schedule helpers ────────────────────────────────────────────────────────
-  type ScheduleFreq = "none" | "daily" | "weekly" | "monthly";
+  type ScheduleFreq = "none" | "hourly" | "daily" | "weekly" | "monthly";
 
-  function cronToForm(cron: string | null): { freq: ScheduleFreq; dow: number; dom: number } {
-    if (!cron) return { freq: "none", dow: 1, dom: 1 };
+  function cronToForm(cron: string | null): { freq: ScheduleFreq; dow: number; dom: number; hours: number[]; minutes: number[] } {
+    const def = { freq: "none" as ScheduleFreq, dow: 1, dom: 1, hours: [0], minutes: [0] };
+    if (!cron) return def;
     const parts = cron.trim().split(/\s+/);
-    if (parts.length !== 5) return { freq: "none", dow: 1, dom: 1 };
-    const [, , dom, , dow] = parts;
-    if (dom !== "*") return { freq: "monthly", dow: 1, dom: parseInt(dom) || 1 };
-    if (dow !== "*") return { freq: "weekly", dow: parseInt(dow) ?? 1, dom: 1 };
-    return { freq: "daily", dow: 1, dom: 1 };
+    if (parts.length !== 5) return def;
+    const [minStr, hourStr, dom, , dow] = parts;
+    const hours = hourStr === "*" ? [0] : hourStr.split(",").map(Number);
+    const minutes = minStr === "0" ? [0] : minStr.split(",").map(Number);
+    if (hourStr === "*") return { freq: "hourly", dow: 1, dom: 1, hours: [0], minutes };
+    if (dom !== "*") return { freq: "monthly", dow: 1, dom: parseInt(dom) || 1, hours, minutes: [0] };
+    if (dow !== "*") return { freq: "weekly", dow: parseInt(dow) ?? 1, dom: 1, hours, minutes: [0] };
+    return { freq: "daily", dow: 1, dom: 1, hours, minutes: [0] };
   }
 
-  function formToCron(freq: ScheduleFreq, dow: number, dom: number): string | null {
+  function formToCron(freq: ScheduleFreq, dow: number, dom: number, hours: number[], minutes: number[]): string | null {
     if (freq === "none") return null;
-    if (freq === "daily") return "0 0 * * *";
-    if (freq === "weekly") return `0 0 * * ${dow}`;
-    return `0 0 ${dom} * *`;
+    if (freq === "hourly") return `${minutes.join(",")} * * * *`;
+    const h = hours.join(",");
+    if (freq === "daily") return `0 ${h} * * *`;
+    if (freq === "weekly") return `0 ${h} * * ${dow}`;
+    return `0 ${h} ${dom} * *`;
   }
 
   function freqToPeriodHours(freq: ScheduleFreq): number {
+    if (freq === "hourly") return 1;
     if (freq === "weekly") return 168;
     if (freq === "monthly") return 720;
     return 24;
@@ -173,11 +180,14 @@
 
   function cronLabel(schedule: string | null): string {
     if (!schedule) return "手動のみ";
-    const { freq, dow, dom } = cronToForm(schedule);
+    const { freq, dow, dom, hours, minutes } = cronToForm(schedule);
     const days = ["日", "月", "火", "水", "木", "金", "土"];
-    if (freq === "daily") return "毎日 0:00";
-    if (freq === "weekly") return `毎週${days[dow] ?? ""}曜 0:00`;
-    if (freq === "monthly") return `毎月${dom}日 0:00`;
+    const hStr = hours.map(h => `${h}:00`).join(", ");
+    const mStr = minutes.map(m => `:${String(m).padStart(2, "0")}`).join(", ");
+    if (freq === "hourly") return `毎時 ${mStr}`;
+    if (freq === "daily") return `毎日 ${hStr}`;
+    if (freq === "weekly") return `毎週${days[dow] ?? ""}曜 ${hStr}`;
+    if (freq === "monthly") return `毎月${dom}日 ${hStr}`;
     return schedule;
   }
 
@@ -189,6 +199,8 @@
   let cfgFreq = $state<ScheduleFreq>("none");
   let cfgDow = $state(1);
   let cfgDom = $state(1);
+  let cfgHours = $state<number[]>([0]);
+  let cfgMinutes = $state<number[]>([0]);
   let cfgPrompt = $state("");
   let cfgAccentColor = $state(ICON_COLORS[0]);
   let cfgIsActive = $state(true);
@@ -204,6 +216,8 @@
     cfgFreq = "none";
     cfgDow = 1;
     cfgDom = 1;
+    cfgHours = [0];
+    cfgMinutes = [0];
     cfgPrompt = "";
     cfgAccentColor = ICON_COLORS[0];
     cfgIsActive = true;
@@ -220,6 +234,8 @@
     cfgFreq = parsed.freq;
     cfgDow = parsed.dow;
     cfgDom = parsed.dom;
+    cfgHours = parsed.hours;
+    cfgMinutes = parsed.minutes;
     cfgPrompt = dc.promptTemplate;
     cfgAccentColor = dc.accentColor;
     cfgIsActive = dc.isActive;
@@ -240,7 +256,7 @@
       const payload = {
         name,
         description: cfgDescription.trim(),
-        schedule: formToCron(cfgFreq, cfgDow, cfgDom),
+        schedule: formToCron(cfgFreq, cfgDow, cfgDom, cfgHours, cfgMinutes),
         promptTemplate: prompt,
         periodHours: freqToPeriodHours(cfgFreq),
         accentColor: cfgAccentColor,
@@ -720,10 +736,9 @@
       <div class="form-control">
         <div class="label pb-2">
           <span class="label-text text-sm font-medium">実行頻度</span>
-          <span class="label-text-alt text-xs text-base-content/40">0:00にキューイング</span>
         </div>
-        <div class="grid grid-cols-4 gap-1">
-          {#each ([["none", "手動のみ"], ["daily", "毎日"], ["weekly", "毎週"], ["monthly", "毎月"]] as const) as [val, label]}
+        <div class="flex flex-wrap gap-1">
+          {#each ([["none", "手動のみ"], ["hourly", "毎時"], ["daily", "毎日"], ["weekly", "毎週"], ["monthly", "毎月"]] as const) as [val, label]}
             <button
               type="button"
               class="btn btn-sm rounded-full {cfgFreq === val ? 'btn-primary' : 'btn-ghost border border-base-300'}"
@@ -732,6 +747,52 @@
           {/each}
         </div>
       </div>
+
+      {#if cfgFreq === "hourly"}
+        <div class="form-control">
+          <div class="label pb-2">
+            <span class="label-text text-sm font-medium">分（複数選択可）</span>
+          </div>
+          <div class="grid grid-cols-6 gap-1">
+            {#each Array.from({ length: 12 }, (_, i) => i * 5) as m}
+              <button
+                type="button"
+                class="btn btn-sm rounded-full {cfgMinutes.includes(m) ? 'btn-primary' : 'btn-ghost border border-base-300'}"
+                onclick={() => {
+                  if (cfgMinutes.includes(m)) {
+                    if (cfgMinutes.length > 1) cfgMinutes = cfgMinutes.filter(x => x !== m);
+                  } else {
+                    cfgMinutes = [...cfgMinutes, m].sort((a, b) => a - b);
+                  }
+                }}
+              >:{String(m).padStart(2, "0")}</button>
+            {/each}
+          </div>
+        </div>
+      {/if}
+
+      {#if cfgFreq === "daily" || cfgFreq === "weekly" || cfgFreq === "monthly"}
+        <div class="form-control">
+          <div class="label pb-2">
+            <span class="label-text text-sm font-medium">時刻（複数選択可）</span>
+          </div>
+          <div class="grid grid-cols-6 gap-1">
+            {#each Array.from({ length: 24 }, (_, i) => i) as h}
+              <button
+                type="button"
+                class="btn btn-sm rounded-full {cfgHours.includes(h) ? 'btn-primary' : 'btn-ghost border border-base-300'}"
+                onclick={() => {
+                  if (cfgHours.includes(h)) {
+                    if (cfgHours.length > 1) cfgHours = cfgHours.filter(x => x !== h);
+                  } else {
+                    cfgHours = [...cfgHours, h].sort((a, b) => a - b);
+                  }
+                }}
+              >{h}</button>
+            {/each}
+          </div>
+        </div>
+      {/if}
 
       {#if cfgFreq === "weekly"}
         <div class="form-control">
