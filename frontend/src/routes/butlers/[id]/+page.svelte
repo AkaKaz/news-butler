@@ -146,7 +146,7 @@
   }
 
   // ── Schedule helpers ────────────────────────────────────────────────────────
-  type ScheduleFreq = "none" | "hourly" | "daily" | "weekly" | "monthly";
+  type ScheduleFreq = "none" | "daily" | "weekly" | "monthly";
 
   function cronToForm(cron: string | null): { freq: ScheduleFreq; dow: number; dom: number; hours: number[]; minutes: number[] } {
     const def = { freq: "none" as ScheduleFreq, dow: 1, dom: 1, hours: [0], minutes: [0] };
@@ -155,8 +155,6 @@
     if (parts.length !== 5) return def;
     const [minStr, hourStr, dom, , dow] = parts;
     const hours = hourStr === "*" ? [0] : hourStr.split(",").map(Number);
-    const minutes = minStr === "0" ? [0] : minStr.split(",").map(Number);
-    if (hourStr === "*") return { freq: "hourly", dow: 1, dom: 1, hours: [0], minutes };
     if (dom !== "*") return { freq: "monthly", dow: 1, dom: parseInt(dom) || 1, hours, minutes: [0] };
     if (dow !== "*") return { freq: "weekly", dow: parseInt(dow) ?? 1, dom: 1, hours, minutes: [0] };
     return { freq: "daily", dow: 1, dom: 1, hours, minutes: [0] };
@@ -164,7 +162,6 @@
 
   function formToCron(freq: ScheduleFreq, dow: number, dom: number, hours: number[], minutes: number[]): string | null {
     if (freq === "none") return null;
-    if (freq === "hourly") return `${minutes.join(",")} * * * *`;
     const h = hours.join(",");
     if (freq === "daily") return `0 ${h} * * *`;
     if (freq === "weekly") return `0 ${h} * * ${dow}`;
@@ -172,7 +169,6 @@
   }
 
   function freqToPeriodHours(freq: ScheduleFreq): number {
-    if (freq === "hourly") return 1;
     if (freq === "weekly") return 168;
     if (freq === "monthly") return 720;
     return 24;
@@ -183,8 +179,6 @@
     const { freq, dow, dom, hours, minutes } = cronToForm(schedule);
     const days = ["日", "月", "火", "水", "木", "金", "土"];
     const hStr = hours.map(h => `${h}:00`).join(", ");
-    const mStr = minutes.map(m => `:${String(m).padStart(2, "0")}`).join(", ");
-    if (freq === "hourly") return `毎時 ${mStr}`;
     if (freq === "daily") return `毎日 ${hStr}`;
     if (freq === "weekly") return `毎週${days[dow] ?? ""}曜 ${hStr}`;
     if (freq === "monthly") return `毎月${dom}日 ${hStr}`;
@@ -738,7 +732,7 @@
           <span class="label-text text-sm font-medium">実行頻度</span>
         </div>
         <div class="flex flex-wrap gap-1">
-          {#each ([["none", "手動のみ"], ["hourly", "毎時"], ["daily", "毎日"], ["weekly", "毎週"], ["monthly", "毎月"]] as const) as [val, label]}
+          {#each ([["none", "手動のみ"], ["daily", "毎日"], ["weekly", "毎週"], ["monthly", "毎月"]] as const) as [val, label]}
             <button
               type="button"
               class="btn btn-sm rounded-full {cfgFreq === val ? 'btn-primary' : 'btn-ghost border border-base-300'}"
@@ -747,29 +741,6 @@
           {/each}
         </div>
       </div>
-
-      {#if cfgFreq === "hourly"}
-        <div class="form-control">
-          <div class="label pb-2">
-            <span class="label-text text-sm font-medium">分（複数選択可）</span>
-          </div>
-          <div class="grid grid-cols-6 gap-1">
-            {#each Array.from({ length: 12 }, (_, i) => i * 5) as m}
-              <button
-                type="button"
-                class="btn btn-sm rounded-full {cfgMinutes.includes(m) ? 'btn-primary' : 'btn-ghost border border-base-300'}"
-                onclick={() => {
-                  if (cfgMinutes.includes(m)) {
-                    if (cfgMinutes.length > 1) cfgMinutes = cfgMinutes.filter(x => x !== m);
-                  } else {
-                    cfgMinutes = [...cfgMinutes, m].sort((a, b) => a - b);
-                  }
-                }}
-              >:{String(m).padStart(2, "0")}</button>
-            {/each}
-          </div>
-        </div>
-      {/if}
 
       {#if cfgFreq === "daily" || cfgFreq === "weekly" || cfgFreq === "monthly"}
         <div class="form-control">
