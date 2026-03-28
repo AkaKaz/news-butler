@@ -7,3 +7,16 @@
     font-size: 16px;
   }
 }
+
+/* SafariのWebKit擬似要素で連絡先・認証情報の自動入力ボタンを非表示にする */
+input[autocomplete="off"]::-webkit-contacts-auto-fill-button,
+input[autocomplete="off"]::-webkit-credentials-auto-fill-button,
+textarea[autocomplete="off"]::-webkit-contacts-auto-fill-button,
+textarea[autocomplete="off"]::-webkit-credentials-auto-fill-button {
+  visibility: hidden;
+  display: none !important;
+  pointer-events: none;
+  height: 0;
+  width: 0;
+  margin: 0;
+}
