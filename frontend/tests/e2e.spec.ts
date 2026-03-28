@@ -236,7 +236,7 @@ test.describe("レポート設定一覧", () => {
 
   test("スケジュールが表示される", async ({page}) => {
     await page.goto("/butlers/mock-1");
-    await expect(page.getByText("毎日 0:00")).toBeVisible();
+    await expect(page.getByText("毎日 8:00")).toBeVisible();
   });
 
   test("追加ボタンが表示される", async ({page}) => {
