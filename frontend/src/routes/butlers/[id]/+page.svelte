@@ -148,24 +148,23 @@
   // ── Schedule helpers ────────────────────────────────────────────────────────
   type ScheduleFreq = "none" | "daily" | "weekly" | "monthly";
 
-  function cronToForm(cron: string | null): { freq: ScheduleFreq; dow: number; dom: number; hours: number[]; minutes: number[] } {
-    const def = { freq: "none" as ScheduleFreq, dow: 1, dom: 1, hours: [0], minutes: [0] };
+  function cronToForm(cron: string | null): { freq: ScheduleFreq; dows: number[]; doms: number[]; hours: number[] } {
+    const def = { freq: "none" as ScheduleFreq, dows: [1], doms: [1], hours: [0] };
     if (!cron) return def;
     const parts = cron.trim().split(/\s+/);
     if (parts.length !== 5) return def;
-    const [minStr, hourStr, dom, , dow] = parts;
+    const [, hourStr, domStr, , dowStr] = parts;
     const hours = hourStr === "*" ? [0] : hourStr.split(",").map(Number);
-    if (dom !== "*") return { freq: "monthly", dow: 1, dom: parseInt(dom) || 1, hours, minutes: [0] };
-    if (dow !== "*") return { freq: "weekly", dow: parseInt(dow) ?? 1, dom: 1, hours, minutes: [0] };
-    return { freq: "daily", dow: 1, dom: 1, hours, minutes: [0] };
+    if (domStr !== "*") return { freq: "monthly", dows: [1], doms: domStr.split(",").map(Number), hours: [0] };
+    if (dowStr !== "*") return { freq: "weekly", dows: dowStr.split(",").map(Number), doms: [1], hours: [0] };
+    return { freq: "daily", dows: [1], doms: [1], hours };
   }
 
-  function formToCron(freq: ScheduleFreq, dow: number, dom: number, hours: number[], minutes: number[]): string | null {
+  function formToCron(freq: ScheduleFreq, dows: number[], doms: number[], hours: number[]): string | null {
     if (freq === "none") return null;
-    const h = hours.join(",");
-    if (freq === "daily") return `0 ${h} * * *`;
-    if (freq === "weekly") return `0 ${h} * * ${dow}`;
-    return `0 ${h} ${dom} * *`;
+    if (freq === "daily") return `0 ${hours.join(",")} * * *`;
+    if (freq === "weekly") return `0 0 * * ${dows.sort((a, b) => a - b).join(",")}`;
+    return `0 0 ${doms.sort((a, b) => a - b).join(",")} * *`;
   }
 
   function freqToPeriodHours(freq: ScheduleFreq): number {
@@ -176,12 +175,12 @@
 
   function cronLabel(schedule: string | null): string {
     if (!schedule) return "手動のみ";
-    const { freq, dow, dom, hours, minutes } = cronToForm(schedule);
-    const days = ["日", "月", "火", "水", "木", "金", "土"];
+    const { freq, dows, doms, hours } = cronToForm(schedule);
+    const dayNames = ["日", "月", "火", "水", "木", "金", "土"];
     const hStr = hours.map(h => `${h}:00`).join(", ");
     if (freq === "daily") return `毎日 ${hStr}`;
-    if (freq === "weekly") return `毎週${days[dow] ?? ""}曜 ${hStr}`;
-    if (freq === "monthly") return `毎月${dom}日 ${hStr}`;
+    if (freq === "weekly") return `毎週 ${dows.map(d => dayNames[d] ?? "").join("・")}曜`;
+    if (freq === "monthly") return `毎月 ${doms.join("・")}日`;
     return schedule;
   }
 
@@ -191,10 +190,9 @@
   let cfgName = $state("");
   let cfgDescription = $state("");
   let cfgFreq = $state<ScheduleFreq>("none");
-  let cfgDow = $state(1);
-  let cfgDom = $state(1);
+  let cfgDows = $state<number[]>([1]);
+  let cfgDoms = $state<number[]>([1]);
   let cfgHours = $state<number[]>([0]);
-  let cfgMinutes = $state<number[]>([0]);
   let cfgPrompt = $state("");
   let cfgAccentColor = $state(ICON_COLORS[0]);
   let cfgIsActive = $state(true);
@@ -208,10 +206,9 @@
     cfgName = "";
     cfgDescription = "";
     cfgFreq = "none";
-    cfgDow = 1;
-    cfgDom = 1;
+    cfgDows = [1];
+    cfgDoms = [1];
     cfgHours = [0];
-    cfgMinutes = [0];
     cfgPrompt = "";
     cfgAccentColor = ICON_COLORS[0];
     cfgIsActive = true;
@@ -226,10 +223,9 @@
     cfgDescription = dc.description;
     const parsed = cronToForm(dc.schedule);
     cfgFreq = parsed.freq;
-    cfgDow = parsed.dow;
-    cfgDom = parsed.dom;
+    cfgDows = parsed.dows;
+    cfgDoms = parsed.doms;
     cfgHours = parsed.hours;
-    cfgMinutes = parsed.minutes;
     cfgPrompt = dc.promptTemplate;
     cfgAccentColor = dc.accentColor;
     cfgIsActive = dc.isActive;
@@ -250,7 +246,7 @@
       const payload = {
         name,
         description: cfgDescription.trim(),
-        schedule: formToCron(cfgFreq, cfgDow, cfgDom, cfgHours, cfgMinutes),
+        schedule: formToCron(cfgFreq, cfgDows, cfgDoms, cfgHours),
         promptTemplate: prompt,
         periodHours: freqToPeriodHours(cfgFreq),
         accentColor: cfgAccentColor,
@@ -742,7 +738,7 @@
         </div>
       </div>
 
-      {#if cfgFreq === "daily" || cfgFreq === "weekly" || cfgFreq === "monthly"}
+      {#if cfgFreq === "daily"}
         <div class="form-control">
           <div class="label pb-2">
             <span class="label-text text-sm font-medium">時刻（複数選択可）</span>
@@ -767,12 +763,18 @@
 
       {#if cfgFreq === "weekly"}
         <div class="form-control">
-          <div class="label pb-2"><span class="label-text text-sm font-medium">曜日</span></div>
+          <div class="label pb-2"><span class="label-text text-sm font-medium">曜日（複数選択可）</span></div>
           <div class="grid grid-cols-7 gap-1">
             {#each (["日", "月", "火", "水", "木", "金", "土"] as const) as day, i}
               <button type="button"
-                class="btn btn-sm rounded-full {cfgDow === i ? 'btn-primary' : 'btn-ghost border border-base-300'}"
-                onclick={() => (cfgDow = i)}
+                class="btn btn-sm rounded-full {cfgDows.includes(i) ? 'btn-primary' : 'btn-ghost border border-base-300'}"
+                onclick={() => {
+                  if (cfgDows.includes(i)) {
+                    if (cfgDows.length > 1) cfgDows = cfgDows.filter(x => x !== i);
+                  } else {
+                    cfgDows = [...cfgDows, i].sort((a, b) => a - b);
+                  }
+                }}
               >{day}</button>
             {/each}
           </div>
@@ -780,14 +782,23 @@
       {/if}
 
       {#if cfgFreq === "monthly"}
-        <label class="form-control">
-          <div class="label pb-1"><span class="label-text text-sm font-medium">日</span></div>
-          <select class="select select-bordered rounded-full px-4 w-full" bind:value={cfgDom}>
+        <div class="form-control">
+          <div class="label pb-2"><span class="label-text text-sm font-medium">日（複数選択可）</span></div>
+          <div class="grid grid-cols-7 gap-1">
             {#each Array.from({ length: 28 }, (_, i) => i + 1) as d}
-              <option value={d}>{d}日</option>
+              <button type="button"
+                class="btn btn-sm rounded-full {cfgDoms.includes(d) ? 'btn-primary' : 'btn-ghost border border-base-300'}"
+                onclick={() => {
+                  if (cfgDoms.includes(d)) {
+                    if (cfgDoms.length > 1) cfgDoms = cfgDoms.filter(x => x !== d);
+                  } else {
+                    cfgDoms = [...cfgDoms, d].sort((a, b) => a - b);
+                  }
+                }}
+              >{d}</button>
             {/each}
-          </select>
-        </label>
+          </div>
+        </div>
       {/if}
 
       <!-- Prompt template -->
